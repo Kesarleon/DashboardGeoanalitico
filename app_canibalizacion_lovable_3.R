@@ -13,6 +13,9 @@ library(shinymanager)
 library(plotly)
 library(ggplot2)
 
+# Módulos UI extraídos
+source("R/utils/ui_components.R")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CREDENCIALES
@@ -640,31 +643,7 @@ dark_plotly <- function(p, ...) {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# UI HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-kpi_card <- function(label, value, sub = NULL, sub_cls = "") {
-  sub_html <- if (!is.null(sub)) sprintf('<div class="kpi-sub %s">%s</div>', sub_cls, sub) else ""
-  HTML(sprintf('<div class="kpi-card">
-    <div class="kpi-label">%s</div>
-    <div class="kpi-value">%s</div>%s
-  </div>', label, value, sub_html))
-}
-
-bench_card <- function(value, label, sub = NULL, color = "#e2e8f0") {
-  sub_html <- if (!is.null(sub)) sprintf('<div class="bsub">%s</div>', sub) else ""
-  HTML(sprintf('<div class="bench-card">
-    <div class="bval" style="color:%s;">%s</div>
-    <div class="blbl">%s</div>%s
-  </div>', color, value, label, sub_html))
-}
-
-page_hdr <- function(badge, title, sub) {
-  div(class = "page-section",
-      div(class = "section-badge", badge),
-      div(class = "section-title", title),
-      div(class = "section-sub",   sub)
-  )
-}
+# UI HELPERS → movidos a R/utils/ui_components.R
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UI
