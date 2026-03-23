@@ -1,0 +1,30 @@
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Shiny
+rsconnect/
+
+# Datos sensibles (¡IMPORTANTE!)
+*.rds
+*.csv
+data/clients/*/
+config/clients/*_credentials.yml
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Entorno
+.env
+.Renviron
+
+# Logs
+*.log
+
+# Temporal
+tmp/
+temp/
