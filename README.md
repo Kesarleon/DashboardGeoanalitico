@@ -1,21 +1,13 @@
 # Plataforma de Factibilidad Multi-Sector
 
-Aplicaci贸n Shiny modular para an谩lisis de factibilidad de proyectos en m煤ltiples sectores (salud, inmobiliario, etc.).
+Aplicaci髇 Shiny modular para an醠isis de factibilidad de proyectos en m鷏tiples sectores.
 
 ## Estado del Proyecto
 
-- **Versi贸n actual**: 1.0.0 (Monol铆tica - Manzanillo)
-- **Versi贸n objetivo**: 2.0.0 (Modular - Multi-cliente)
-- **En desarrollo**: Migraci贸n a arquitectura modular
+- **Versi髇 actual**: 1.0.0 (Monol韙ica - Manzanillo)
+- **Versi髇 objetivo**: 2.0.0 (Modular - Multi-cliente)
+- **En desarrollo**: Migraci髇 a arquitectura modular
 
-## Arquitectura
-
-[Por desarrollar]
-
-## Instalaci贸n
+## Instalaci髇
 
 [Por desarrollar]
-
-## Licencia
-
-[Definir]
