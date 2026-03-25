@@ -17,6 +17,7 @@ library(ggplot2)
 source("R/utils/ui_components.R")
 source("R/utils/plotting.R")
 source("R/themes/theme_dark.R")
+source("R/models/huff_model.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -283,47 +284,6 @@ if (file.exists("denue_salud.rds")) {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FUNCIÓN HUFF
-# ══════════════════════════════════════════════════════════════════════════════
-calcular_huff <- function(demanda, oferta, sensibilidad_dist = 2, peso_camas = 0.1, peso_esp = 0.9) {
-  if (!"k_factor" %in% names(oferta)) oferta$k_factor <- 1
-  oferta$k_factor[is.na(oferta$k_factor)] <- 1
-  
-  oferta <- oferta %>%
-    mutate(
-      atractividad_base  = (camas * peso_camas) + (especialidades * peso_esp),
-      atractividad_final = atractividad_base * k_factor
-    )
-  
-  grid  <- expand.grid(dem_id = demanda$id, of_id = oferta$id)
-  datos <- grid %>%
-    left_join(demanda, by = c("dem_id" = "id")) %>%
-    left_join(oferta,  by = c("of_id"  = "id"), suffix = c("_dem", "_of"))
-  
-  dist_km <- distHaversine(
-    matrix(c(datos$lon_dem, datos$lat_dem), ncol = 2),
-    matrix(c(datos$lon_of,  datos$lat_of),  ncol = 2)
-  ) / 1000
-  
-  datos$distancia <- pmax(dist_km, 0.1)
-  datos <- datos %>%
-    mutate(friccion = distancia ^ sensibilidad_dist,
-           utilidad = atractividad_final / friccion) %>%
-    group_by(dem_id) %>%
-    mutate(probabilidad    = utilidad / sum(utilidad)) %>%
-    ungroup() %>%
-    mutate(mercado_captado = probabilidad * poblacion)
-  
-  list(
-    detallado          = datos,
-    resumen_hospitales = datos %>%
-      group_by(of_id, nombre, tipo) %>%
-      summarise(total_pacientes = sum(mercado_captado), .groups = "drop")
-  )
-}
-
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # UI HELPERS → movidos a R/utils/ui_components.R
 

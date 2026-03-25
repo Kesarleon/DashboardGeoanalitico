@@ -202,8 +202,8 @@ calcular_huff <- function(demanda, oferta, sensibilidad_dist = 2,
   metricas <- calculate_market_metrics(resumen)
 
   list(
-    detallado = datos,
-    resumen   = resumen,
-    metricas  = metricas
+    detallado          = datos,
+    resumen_hospitales = resumen,
+    metricas           = metricas
   )
 }
