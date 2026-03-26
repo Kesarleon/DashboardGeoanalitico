@@ -18,6 +18,7 @@ source("R/utils/ui_components.R")
 source("R/utils/plotting.R")
 source("R/themes/theme_dark.R")
 source("R/models/huff_model.R")
+source("R/models/financial_model.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -241,20 +242,7 @@ RAMP_CURVES <- list(
   "Conservador" = c(0.18, 0.30, 0.42, 0.54, 0.63, 0.70, 0.75, 0.80, 0.83, 0.86)
 )
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FUNCIÓN IRR (bisección)
-# ══════════════════════════════════════════════════════════════════════════════
-calcular_irr <- function(flujos, r_min = -0.5, r_max = 5, tol = 1e-6, max_iter = 200) {
-  npv_fn <- function(r) sum(flujos / (1 + r)^(seq_along(flujos) - 1))
-  if (is.na(npv_fn(r_min)) || is.na(npv_fn(r_max))) return(NA_real_)
-  if (npv_fn(r_min) * npv_fn(r_max) > 0) return(NA_real_)
-  for (i in seq_len(max_iter)) {
-    r_mid <- (r_min + r_max) / 2
-    if (abs(r_max - r_min) < tol) return(round(r_mid * 100, 2))
-    if (npv_fn(r_min) * npv_fn(r_mid) < 0) r_max <- r_mid else r_min <- r_mid
-  }
-  round((r_min + r_max) / 2 * 100, 2)
-}
+# calcular_irr: sourced from R/models/financial_model.R (returns decimal; ×100 at call sites)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATOS DE ARCHIVOS
@@ -1780,7 +1768,7 @@ server <- function(input, output, session) {
     flujo_ac_v <- cumsum(ebitda_v) - input$fin_capex
     
     vpn     <- -input$fin_capex + sum(ebitda_v / (1 + input$fin_wacc / 100)^(1:10))
-    tir_val <- tryCatch(calcular_irr(c(-input$fin_capex, ebitda_v)), error = function(e) NA_real_)
+    tir_val <- tryCatch(calcular_irr(c(-input$fin_capex, ebitda_v)) * 100, error = function(e) NA_real_)
     
     cumsum_ebitda <- cumsum(ebitda_v)
     be_idx <- which(cumsum_ebitda >= input$fin_capex)[1]
@@ -1816,7 +1804,7 @@ server <- function(input, output, session) {
       eb_s  <- ingr_s - opex_s
       fl_s  <- c(-input$fin_capex, eb_s)
       vpn_s <- -input$fin_capex + sum(eb_s / (1 + input$fin_wacc / 100)^(1:10))
-      tir_s <- tryCatch(calcular_irr(fl_s), error = function(e) NA_real_)
+      tir_s <- tryCatch(calcular_irr(fl_s) * 100, error = function(e) NA_real_)
       ce_s  <- cumsum(eb_s)
       bi_s  <- which(ce_s >= input$fin_capex)[1]
       be_s  <- if (is.na(bi_s)) ">10a" else {
