@@ -1766,10 +1766,22 @@ server <- function(input, output, session) {
     
     ebitda_v   <- ingresos_v - opex_v
     flujo_ac_v <- cumsum(ebitda_v) - input$fin_capex
-    
-    vpn     <- -input$fin_capex + sum(ebitda_v / (1 + input$fin_wacc / 100)^(1:10))
-    tir_val <- tryCatch(calcular_irr(c(-input$fin_capex, ebitda_v)) * 100, error = function(e) NA_real_)
-    
+
+    # ── Métricas financieras via financial_model.R ──────────────────────────
+    flujos_df_base <- data.frame(
+      flujo_neto      = ebitda_v,
+      flujo_acumulado = flujo_ac_v,
+      ingresos        = ingresos_v,
+      egresos         = opex_v
+    )
+    metricas_base <- calcular_metricas_financieras(
+      flujos_df_base,
+      capex_inicial  = -input$fin_capex,
+      tasa_descuento = input$fin_wacc / 100
+    )
+    vpn     <- metricas_base$npv
+    tir_val <- if (is.na(metricas_base$irr)) NA_real_ else metricas_base$irr * 100
+
     cumsum_ebitda <- cumsum(ebitda_v)
     be_idx <- which(cumsum_ebitda >= input$fin_capex)[1]
     be_str <- if (is.na(be_idx)) {
