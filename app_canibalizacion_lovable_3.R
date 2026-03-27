@@ -19,6 +19,7 @@ source("R/utils/plotting.R")
 source("R/themes/theme_dark.R")
 source("R/models/huff_model.R")
 source("R/models/financial_model.R")
+source("R/models/capacity_model.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -60,15 +61,7 @@ hosp_ucin            <- 3
 hosp_camas_urgencias <- 10
 hosp_sillones_dia    <- 6
 
-# ── Factores de calibración — Calculadora de Capacidad ──────────────────────
-
-EGRESOS_BASE     <- round(proy_pacs_anuales * 100 / 1000)
-CALC_CAMAS_CRUDO <- ceiling(EGRESOS_BASE * 3.5 / (365 * 0.85))
-CALC_QX_CRUDO    <- max(ceiling(EGRESOS_BASE * 0.40 / (4 * 365)), 1)
-FACTOR_CAMAS     <- hosp_camas_censables / CALC_CAMAS_CRUDO
-FACTOR_QX        <- hosp_quirofanos      / CALC_QX_CRUDO
-RATIO_CONS_CAMA  <- 4
-FACTOR_CONS      <- (hosp_consultorios * 3 * 16 * 300) / (proy_pacs_anuales * 2.5)
+# Factores de calibración de capacidad definidos en R/models/capacity_model.R
 # ══════════════════════════════════════════════════════════════════════════════
 # DATOS ANÁLISIS DE MERCADO
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1230,46 +1223,35 @@ server <- function(input, output, session) {
   })
   
   # ─── Pestaña 2: Calculadora de Capacidad ───────────────────────────────────
-  egresos_anuales <- reactive({
-    req(res_auth$user)
-    round(input$poblacion_objetivo * input$tasa_hosp / 1000)
-  })
-  
-  n_camas <- reactive({
+  # Lógica centralizada en R/models/capacity_model.R :: calcular_capacidad_hospitalaria()
+  cap_result <- reactive({
     req(res_auth$user, input$estancia_prom, input$ocupacion_obj)
-    raw <- ceiling((egresos_anuales() * input$estancia_prom) /
-                     (365 * (input$ocupacion_obj / 100)))
-    round(raw * FACTOR_CAMAS)
+    calcular_capacidad_hospitalaria(
+      poblacion               = input$poblacion_objetivo,
+      tasa_egresos            = input$tasa_hosp / 1000,
+      dias_estancia_promedio  = input$estancia_prom,
+      tasa_ocupacion_objetivo = input$ocupacion_obj / 100,
+      k_calibracion           = 1.0
+    )
   })
-  
-  n_consultorios <- reactive({
-    req(res_auth$user, input$consultas_paciente, input$pacientes_hora,
-        input$turnos_cons, input$dias_lab_cons)
-    consultas_año  <- input$poblacion_objetivo * input$consultas_paciente
-    horas_diarias  <- as.numeric(input$turnos_cons) * 8
-    ceiling(consultas_año * FACTOR_CONS /
-              (input$pacientes_hora * horas_diarias * input$dias_lab_cons))
-  })
-  
+
   output$res_camas <- renderText({
-    req(res_auth$user); paste(n_camas(), "camas")
+    req(res_auth$user); paste(cap_result()$camas_censables, "camas")
   })
   output$res_consultorios <- renderText({
-    req(res_auth$user); paste(n_consultorios(), "consultorios")
+    req(res_auth$user); paste(cap_result()$consultorios, "consultorios")
   })
   output$res_quirofanos <- renderText({
-    req(res_auth$user)
-    raw <- ceiling((egresos_anuales() * input$tasa_qx / 100) /
-                     (input$cirugias_sala_dia * 365))
-    paste(ceiling(raw * FACTOR_QX), "salas")
+    req(res_auth$user); paste(cap_result()$quirofanos, "salas")
   })
   output$res_medicos <- renderText({
-    req(res_auth$user); paste(round(n_camas() * input$ratio_medicos_cama), "médicos")
+    req(res_auth$user)
+    paste(round(cap_result()$camas_censables * input$ratio_medicos_cama), "médicos")
   })
-  
+
   output$tabla_especialidades <- renderTable({
-    req(res_auth$user, n_camas())
-    total <- round(n_camas() * input$ratio_medicos_cama)
+    req(res_auth$user)
+    total <- round(cap_result()$camas_censables * input$ratio_medicos_cama)
     personal <- round(total * c(.15,.18,.14,.12,.13,.10,.11,.07))
     tibble(
       Especialidad    = c("Medicina Interna","Gineco-Obstetricia","Cirugía General",
