@@ -135,7 +135,106 @@ mod_market_simulation_server <- function(id, shared_data) {
         )
     })
 
-    # === OUTPUTS van en el siguiente paso ===
+    # === OUTPUTS ===
+
+    output$kpi_captacion <- renderUI({
+      req(captacion_proyecto())
+      kpi_card(
+        "CAPTACIÓN ANUAL",
+        scales::comma(round(captacion_proyecto()$total * 12)),
+        "Pacientes proyectados / año",
+        "kpi-up"
+      )
+    })
+
+    output$kpi_share <- renderUI({
+      req(captacion_proyecto())
+      kpi_card(
+        "MARKET SHARE",
+        paste0(round(captacion_proyecto()$share * 100, 1), "%"),
+        "Participación de mercado"
+      )
+    })
+
+    output$kpi_distancia <- renderUI({
+      req(captacion_proyecto())
+      kpi_card(
+        "DISTANCIA PROMEDIO",
+        paste0(round(captacion_proyecto()$distancia_prom, 1), " km"),
+        "Desde AGEBs captados"
+      )
+    })
+
+    output$mapa <- renderLeaflet({
+      req(huff_results())
+      datos_mapa <- huff_results()$detallado %>%
+        filter(of_id == "PROYECTO")
+      pal <- colorNumeric(palette = "YlOrRd", domain = datos_mapa$probabilidad)
+      leaflet(datos_mapa) %>%
+        addProviderTiles(providers$CartoDB.DarkMatter) %>%
+        addCircleMarkers(
+          lng = ~lon_dem, lat = ~lat_dem,
+          radius = ~sqrt(poblacion) / 30,
+          fillColor = ~pal(probabilidad), fillOpacity = 0.7,
+          stroke = TRUE, color = "white", weight = 1,
+          popup = ~paste0(
+            "<b>AGEB:</b> ", dem_id, "<br>",
+            "<b>Población:</b> ", scales::comma(round(poblacion)), "<br>",
+            "<b>Prob. Captura:</b> ", round(probabilidad * 100, 1), "%<br>",
+            "<b>Pacientes:</b> ", scales::comma(round(mercado_captado, 0))
+          )
+        ) %>%
+        addLegend("bottomright", pal = pal, values = ~probabilidad,
+                  title = "Prob. Captura",
+                  labFormat = labelFormat(suffix = "%",
+                                          transform = function(x) x * 100))
+    })
+
+    output$sankey <- renderSankeyNetwork({
+      req(huff_results())
+      detallado <- huff_results()$detallado %>% filter(mercado_captado > 0)
+      sources <- unique(detallado$dem_id)
+      targets <- unique(detallado$of_id)
+      nodes   <- data.frame(name = c(sources, targets), stringsAsFactors = FALSE)
+      links   <- detallado %>%
+        mutate(
+          source = match(dem_id, nodes$name) - 1,
+          target = match(of_id,  nodes$name) - 1,
+          value  = mercado_captado
+        ) %>%
+        select(source, target, value)
+      sankeyNetwork(
+        Links = links, Nodes = nodes,
+        Source = "source", Target = "target", Value = "value",
+        NodeID = "name", fontSize = 11, nodeWidth = 20,
+        fontFamily = "Inter, sans-serif",
+        colourScale = JS('d3.scaleOrdinal().range(["#f5a623","#38bdf8","#4ade80","#f87171"])')
+      )
+    })
+
+    output$tabla_resultados <- DT::renderDataTable({
+      req(huff_results())
+      huff_results()$resumen_hospitales %>%
+        arrange(desc(total_pacientes)) %>%
+        transmute(
+          Instalación              = stringr::str_to_title(tolower(nombre)),
+          Tipo                     = tipo,
+          `Total Pacientes`        = scales::comma(round(total_pacientes * 12)),
+          `Market Share`           = paste0(round(cuota_mercado * 100, 1), "%"),
+          `Distancia Prom. (km)`   = round(distancia_prom_pond, 1)
+        ) %>%
+        DT::datatable(
+          options = list(pageLength = 10, dom = "ftp",
+                         order = list(list(2, "desc"))),
+          rownames = FALSE
+        )
+    })
+
+    # === RETORNO ===
+    list(
+      huff_results       = huff_results,
+      captacion_proyecto = captacion_proyecto
+    )
 
   })
 }
