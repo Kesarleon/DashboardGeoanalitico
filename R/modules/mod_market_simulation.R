@@ -48,7 +48,8 @@ mod_market_simulation_ui <- function(id) {
     page_header(
       "① SIMULACIÓN",
       "Modelo de Captación de Mercado",
-      "Modelo Huff gravitacional calibrado"
+      "Modelo Huff gravitacional calibrado",
+      icon = "graph-up-arrow"
     ),
     tags$div(
       class = "kpi-row",
@@ -141,9 +142,9 @@ mod_market_simulation_server <- function(id, shared_data) {
       req(captacion_proyecto())
       kpi_card(
         "CAPTACIÓN ANUAL",
-        scales::comma(round(captacion_proyecto()$total * 12)),
-        "Pacientes proyectados / año",
-        "kpi-up"
+        format_number(captacion_proyecto()$total * 12),
+        "Pacientes proyectados",
+        icon = "people-fill"
       )
     })
 
@@ -151,8 +152,9 @@ mod_market_simulation_server <- function(id, shared_data) {
       req(captacion_proyecto())
       kpi_card(
         "MARKET SHARE",
-        paste0(round(captacion_proyecto()$share * 100, 1), "%"),
-        "Participación de mercado"
+        format_percentage(captacion_proyecto()$share, decimals = 1),
+        "Participación de mercado",
+        icon = "pie-chart-fill"
       )
     })
 
@@ -161,7 +163,8 @@ mod_market_simulation_server <- function(id, shared_data) {
       kpi_card(
         "DISTANCIA PROMEDIO",
         paste0(round(captacion_proyecto()$distancia_prom, 1), " km"),
-        "Desde AGEBs captados"
+        "Desde AGEBs captados",
+        icon = "geo-fill"
       )
     })
 
@@ -179,9 +182,9 @@ mod_market_simulation_server <- function(id, shared_data) {
           stroke = TRUE, color = "white", weight = 1,
           popup = ~paste0(
             "<b>AGEB:</b> ", dem_id, "<br>",
-            "<b>Población:</b> ", scales::comma(round(poblacion)), "<br>",
-            "<b>Prob. Captura:</b> ", round(probabilidad * 100, 1), "%<br>",
-            "<b>Pacientes:</b> ", scales::comma(round(mercado_captado, 0))
+            "<b>Población:</b> ", format_number(poblacion), "<br>",
+            "<b>Prob. Captura:</b> ", format_percentage(probabilidad, 1), "<br>",
+            "<b>Pacientes:</b> ", format_number(mercado_captado)
           )
         ) %>%
         addLegend("bottomright", pal = pal, values = ~probabilidad,
