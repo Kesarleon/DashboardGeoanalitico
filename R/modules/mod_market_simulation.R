@@ -82,3 +82,60 @@ mod_market_simulation_ui <- function(id) {
     )
   )
 }
+
+#' Market Simulation Module — Server
+#'
+#' Lógica del servidor para el módulo de simulación de mercado.
+#' Calibra el modelo Huff con datos reales y computa escenarios futuros.
+#'
+#' @param id character. Namespace ID del módulo Shiny.
+#' @param shared_data reactiveValues con campos:
+#'   \describe{
+#'     \item{oferta_actual}{data.frame con oferta hospitalaria existente}
+#'     \item{demanda}{data.frame con puntos de demanda (AGEBs)}
+#'     \item{proyectos_futuros}{data.frame con proyectos futuros}
+#'     \item{denue_salud}{data.frame DENUE (puede ser NULL)}
+#'   }
+#'
+#' @return list con reactivos: `huff_results`, `captacion_proyecto`
+#'
+#' @seealso [mod_market_simulation_ui()]
+#'
+#' @export
+mod_market_simulation_server <- function(id, shared_data) {
+  moduleServer(id, function(input, output, session) {
+
+    # === DATOS REACTIVOS ===
+
+    oferta_filtrada <- reactive({
+      req(shared_data$oferta_actual, input$proyectos_activos)
+      shared_data$oferta_actual %>%
+        filter(id %in% input$proyectos_activos | tipo != "proyecto")
+    })
+
+    huff_results <- reactive({
+      req(shared_data$demanda, oferta_filtrada())
+      calcular_huff(
+        demanda           = shared_data$demanda,
+        oferta            = oferta_filtrada(),
+        sensibilidad_dist = input$sensibilidad,
+        peso_camas        = input$peso_camas,
+        peso_esp          = input$peso_esp
+      )
+    })
+
+    captacion_proyecto <- reactive({
+      req(huff_results())
+      huff_results()$resumen_hospitales %>%
+        filter(of_id == "PROYECTO") %>%
+        summarise(
+          total          = sum(total_pacientes,     na.rm = TRUE),
+          share          = sum(cuota_mercado,        na.rm = TRUE),
+          distancia_prom = mean(distancia_prom_pond, na.rm = TRUE)
+        )
+    })
+
+    # === OUTPUTS van en el siguiente paso ===
+
+  })
+}
