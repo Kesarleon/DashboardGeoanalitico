@@ -20,6 +20,7 @@ source("R/themes/theme_dark.R")
 source("R/models/huff_model.R")
 source("R/models/financial_model.R")
 source("R/models/capacity_model.R")
+source("R/modules/mod_market_simulation.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -282,104 +283,8 @@ ui_dash <- page_navbar(
   # ── 1. Simulación de Mercado ────────────────────────────────────────────────
   nav_panel(
     title = "Simulación de Mercado",
-    layout_sidebar(
-      fillable = FALSE,
-      sidebar = sidebar(
-        width = 320,
-        title = tags$h4("Panel de Simulación", class = "sidebar-title", style = "margin-top:0;"),
-        tags$p("Ajusta las palancas del mercado para evaluar diferentes escenarios.", style = "color:#64748b; font-size:11px;"),
-        tags$hr(),
-        tags$h5("1. Escenarios de Competencia"),
-        tags$small("Proyectos que entrarán al mercado:", style = "color:#64748b;"),
-        checkboxGroupInput("proyectos_activos", NULL,
-                           choices  = c("Nuestro Proyecto " = "PROYECTO",
-                                        "Competidor: La Joya      (48 camas)" = "COMP_CONST_1",
-                                        "Competidor: Los Ángeles  (50 camas)" = "COMP_CONST_2"),
-                           selected = c("PROYECTO", "COMP_CONST_1", "COMP_CONST_2")),
-        tags$hr(),
-        tags$h5("2. Comportamiento del Paciente"),
-        sliderInput("sensibilidad", "Sensibilidad a la Distancia (λ):", min = 0.1, max = 3, value = 0.5, step = 0.1),
-        tags$small("Mayor valor = priorizan cercanía.", style = "color:#64748b;"),
-        tags$hr(),
-        conditionalPanel(
-          condition = "input.proyectos_activos.includes('PROYECTO')",
-          tags$h5("3. Capacidad del Proyecto"),
-          numericInput("camas_proy", "Camas Censables:", value = 80),
-          numericInput("esp_proy",   "Especialidades Médicas:", value = 8)
-        )
-      ),
-      card(fill = FALSE,
-           card_header(tags$h4(bsicons::bs_icon("geo-alt-fill"), " Entorno Geográfico y Densidad de Demanda")),
-           card_body(
-             tags$p("Visualización de la oferta hospitalaria y probabilidad de captura de pacientes.", style = "color:#64748b; font-size:11px;"),
-             leafletOutput("mapa", height = "520px")
-           )
-      ),
-      card(fill = FALSE,
-           card_header(tags$h4(bsicons::bs_icon("shuffle"), " Dinámica de Competencia y Canibalización")),
-           card_body(
-             tags$p("Flujo de canibalización entre hospitales al incorporar nuevos proyectos.", style = "color:#64748b; font-size:11px;"),
-             sankeyNetworkOutput("sankey_canibal", height = "340px")
-           )
-      ),
-      
-      # ── Hospital Echauri: referencia de benchmarking ──
-      card(fill = FALSE,
-           card_header(tags$h4(bsicons::bs_icon("building"), " Hospital Echauri — Referencia Privada Local")),
-           card_body(
-             div(class = "echauri-box",
-                 div(class = "etitle",
-                     "🏥 Echauri es el único privado con quirófano activo en Manzanillo · Benchmark clave para tarifas y captación"),
-                 div(class = "ebody",
-                     HTML('Análisis comparativo con el principal competidor privado existente.
-                     Echauri opera con <strong>13 camas · 9 especialidades · 253 pacientes/año</strong>.
-                     Su ocupación del 68% con esa escala confirma la demanda privada reprimida
-                     y proyecta el potencial del nuevo hospital (80 camas, ×6 el tamaño).'))
-             ),
-             layout_column_wrap(width = 1/2,
-                                div(
-                                  tags$h5("Echauri — Métricas Actuales",
-                                          style = "color:#c084fc; font-size:11px; font-weight:700; margin-bottom:10px;"),
-                                  HTML('
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-                    <div class="echauri-metric"><span>🛏</span> 13 camas censables</div>
-                    <div class="echauri-metric"><span>🩺</span> 9 especialidades</div>
-                    <div class="echauri-metric"><span>👥</span> 3,036 pacientes/año</div>
-                    <div class="echauri-metric"><span>📊</span> 68% ocupación est.</div>
-                    <div class="echauri-metric"><span>🔪</span> 1 quirófano</div>
-                    <div class="echauri-metric"><span>💊</span> Sin UCI · Sin tomógrafo</div>
-                    <div class="echauri-metric"><span>💰</span> ~$4.5 MDP ingresos/año</div>
-                    <div class="echauri-metric"><span>🏷</span> Tarifa: $1,800–$2,400/día</div>
-                  </div>
-                  <div class="info-box"><p>
-                    <strong>Brechas que Echauri no cubre</strong> y el Nuevo Proyecto sí cubrirá:
-                    UCI adultos · UCIN · Sala hemodinámica · Tomógrafo · Oncología ambulatoria ·
-                    Cardiología intervencionista · Laboratorio 24h.
-                    Estas brechas representan la <strong>ventaja competitiva estructural</strong> del proyecto.
-                  </p></div>')
-                                ),
-                                div(
-                                  tags$h5("Proyección Comparativa: Echauri vs Nuevo Proyecto",
-                                          style = "color:#e2e8f0; font-size:11px; font-weight:700; margin-bottom:10px;"),
-                                  plotlyOutput("echauri_comp", height = "220px")
-                                )
-             )
-           )
-      ),
-      
-      card(fill = FALSE, style = "margin-bottom:30px;",
-           card_header(tags$h4(bsicons::bs_icon("clipboard-data"), " Proyecciones Finales de Mercado")),
-           card_body(
-             layout_column_wrap(width = 1/2,
-                                div(tags$h5("Estimaciones Anuales de Mercado", style = "color:#e2e8f0; font-size:12px;"),
-                                    tableOutput("tabla_resumen")),
-                                div(tags$h5("Desglose Operativo (Nuestro Proyecto)", style = "color:#e2e8f0; font-size:12px;"),
-                                    tags$small("Basado en tasas de morbilidad local.", style = "color:#64748b;"), br(),
-                                    plotlyOutput("plot_desglose", height = "200px"))
-             )
-           )
-      )
-    )
+    icon  = bsicons::bs_icon("graph-up-arrow"),
+    mod_market_simulation_ui("market_sim")
   ),
   
   # ── 2. Calculadora de Capacidad ─────────────────────────────────────────────
@@ -824,79 +729,31 @@ server <- function(input, output, session) {
   res_auth <- secure_server(check_credentials = check_credentials(credentials))
   observe({ req(res_auth$user) })
   
-  mapa_listo <- reactiveVal(FALSE)
-  # ─── Reactive: datos escenario ─────────────────────────────────────────────
-  datos_escenario <- reactive({
-    req(res_auth$user)
-    req(!is.null(oferta_actual), !is.null(demanda))
-    
-    oferta_temp <- oferta_actual %>% mutate(k_factor = 1)
-    res_teorico <- calcular_huff(demanda, oferta_temp, input$sensibilidad)
-    
-    total_reales  <- sum(oferta_actual$pacientes_reales, na.rm = TRUE)
-    total_modelo  <- sum(res_teorico$resumen_hospitales$total_pacientes)
-    tasa_uso      <- ifelse(total_modelo > 0, total_reales / total_modelo, 0)
-    
-    calibracion <- res_teorico$resumen_hospitales %>%
-      left_join(oferta_actual %>% select(id, pacientes_reales), by = c("of_id" = "id")) %>%
-      mutate(share_real   = pacientes_reales / total_reales,
-             share_modelo = total_pacientes  / total_modelo,
-             k_factor_calc = ifelse(share_modelo > 0, share_real / share_modelo, 1)) %>%
-      select(of_id, k_factor_calc)
-    
-    oferta_cal <- oferta_actual %>%
-      left_join(calibracion, by = c("id" = "of_id")) %>%
-      mutate(k_factor = replace_na(k_factor_calc, 1))
-    
-    proy_din <- proyectos_futuros %>%
-      filter(id %in% input$proyectos_activos) %>%
-      mutate(k_factor = 1.0)
-    
-    if (nrow(proy_din) > 0 && "PROYECTO" %in% input$proyectos_activos) {
-      proy_din$camas[proy_din$id == "PROYECTO"]          <- input$camas_proy
-      proy_din$especialidades[proy_din$id == "PROYECTO"] <- input$esp_proy
-      proy_din$k_factor <- mean(oferta_cal$k_factor, na.rm = TRUE)
-    }
-    
-    res_base   <- calcular_huff(demanda, oferta_cal, input$sensibilidad)
-    res_base$resumen_hospitales$total_pacientes <-
-      res_base$resumen_hospitales$total_pacientes * tasa_uso
-    
-    oferta_total <- if (nrow(proy_din) > 0) bind_rows(oferta_cal, proy_din) else oferta_cal
-    res_futuro   <- calcular_huff(demanda, oferta_total, input$sensibilidad)
-    res_futuro$resumen_hospitales$total_pacientes <-
-      res_futuro$resumen_hospitales$total_pacientes * tasa_uso
-    
-    layer_prob <- res_futuro$detallado %>%
-      filter(of_id == "PROYECTO") %>%
-      mutate(min_p = min(probabilidad, na.rm = TRUE),
-             max_p = max(probabilidad, na.rm = TRUE),
-             rango = max_p - min_p,
-             prob_norm = ifelse(rango > 0, (probabilidad - min_p) / rango, 0)) %>%
-      select(dem_id, lat_dem, lon_dem, probabilidad, prob_norm, mercado_captado)
-    
-    list(base = res_base, futuro = res_futuro, oferta_usada = oferta_total,
-         layer_prob = layer_prob, tasa_uso_global = tasa_uso)
-  })
-  
+  # ── Módulo: Simulación de Mercado ────────────────────────────────────────────
+  shared_data <- reactiveValues(
+    oferta_actual     = oferta_actual,
+    demanda           = demanda,
+    proyectos_futuros = proyectos_futuros,
+    denue_salud       = denue_salud
+  )
+
+  market_sim_results <- mod_market_simulation_server("market_sim", shared_data)
+
+  # Sincroniza captación Huff → input poblacion_objetivo de Calculadora (Pestaña 2)
   observe({
     req(res_auth$user)
-    if (is.null(oferta_actual)) return()
-    pacs_mes <- tryCatch(
-      datos_escenario()$futuro$resumen_hospitales %>%
-        filter(of_id == "PROYECTO" | tipo == "Nuestro Proyecto") %>%
-        pull(total_pacientes) %>% sum(na.rm = TRUE),
+    pacs_anual <- tryCatch(
+      market_sim_results$captacion_proyecto()$total * 12,
       error = function(e) 0
     )
-    if (pacs_mes > 0)
-      updateNumericInput(session, "poblacion_objetivo", value = round(pacs_mes * 12))
+    if (pacs_anual > 0)
+      updateNumericInput(session, "poblacion_objetivo", value = round(pacs_anual))
   })
   
-  # ── Reactive: vectores de mercado derivados de datos_escenario() ─────────
+  # ── Reactive: vectores de mercado para Pestaña 3 (derivado del módulo) ──────
   mercado_reactivo <- reactive({
     req(res_auth$user)
-    
-    # Valores estáticos de fallback (cuando .rds no está disponible)
+
     fallback <- list(
       hospitales = c("Clínica del Pacífico", "Hospital General",
                      "IMSS Manzanillo", "Nuevo Proyecto"),
@@ -906,320 +763,23 @@ server <- function(input, output, session) {
                      "Hospital General", "IMSS Manzanillo", "Nuevo Proyecto"),
       can_pct    = c(12, 18, 32, 28, 18)
     )
-    
+
     if (is.null(oferta_actual)) return(fallback)
-    
+
     tryCatch({
-      fut <- datos_escenario()$futuro$resumen_hospitales
-      bas <- datos_escenario()$base$resumen_hospitales
-      
-      # Anualizar (la fuente .rds está en unidades mensuales)
-      fut_a <- fut %>% mutate(pacs_anual = round(total_pacientes * 12))
-      bas_a <- bas %>% mutate(pacs_anual = round(total_pacientes * 12))
-      
-      total <- sum(fut_a$pacs_anual)
-      
-      hosp_names <- stringr::str_to_title(tolower(fut_a$nombre))
-      prob_v     <- round(fut_a$pacs_anual / total * 100, 0)
-      pacs_v     <- fut_a$pacs_anual
-      
-      # Canibalización: hospitales que pierden pacientes al entrar el proyecto
-      comp <- fut_a %>%
-        select(of_id, nombre, pacs_futuro = pacs_anual) %>%
-        left_join(bas_a %>% select(of_id, pacs_base = pacs_anual), by = "of_id") %>%
-        mutate(pacs_base  = replace_na(pacs_base, 0),
-               diferencia = pacs_futuro - pacs_base)
-      
-      nuevo_ganancia <- comp %>%
-        filter(of_id == "PROYECTO" | grepl("proyecto", tolower(nombre))) %>%
-        pull(diferencia) %>% sum(na.rm = TRUE)
-      
-      perdedores <- comp %>%
-        filter(diferencia < 0) %>%
-        mutate(nombre = stringr::str_to_title(tolower(nombre)))
-      
-      perdida_local <- sum(abs(perdedores$diferencia))
-      fuga_abs      <- max(0, nuevo_ganancia - perdida_local)
-      
-      can_labels_v <- c(perdedores$nombre, "Fuga a Colima/GDL", "Nuevo Proyecto")
-      
-      pool_total <- sum(abs(perdedores$diferencia)) + fuga_abs
-      
-      can_pct_v <- c(
-        round(abs(perdedores$diferencia) / pool_total * 100),
-        round(fuga_abs                   / pool_total * 100),
-        round(nuevo_ganancia             / total      * 100)   # este sigue referenciando total
+      fut_res <- market_sim_results$huff_results()$resumen_hospitales %>%
+        mutate(pacs_anual = round(total_pacientes * 12))
+
+      total      <- sum(fut_res$pacs_anual)
+      hosp_names <- stringr::str_to_title(tolower(fut_res$nombre))
+      prob_v     <- round(fut_res$pacs_anual / total * 100, 0)
+      pacs_v     <- fut_res$pacs_anual
+
+      list(
+        hospitales = hosp_names, prob = prob_v, pacs = pacs_v,
+        can_labels = fallback$can_labels, can_pct = fallback$can_pct
       )
-      
-      list(hospitales = hosp_names, prob = prob_v, pacs = pacs_v,
-           can_labels = can_labels_v, can_pct = can_pct_v)
-      
     }, error = function(e) fallback)
-  })
-  
-  # ─── Pestaña 1: Mapa ───────────────────────────────────────────────────────
-  # ─── Pestaña 1: Mapa — construcción inicial (solo se ejecuta una vez) ──────
-  output$mapa <- renderLeaflet({
-    req(res_auth$user)
-    m <- leaflet() %>%
-      addTiles() %>%
-      setView(-104.33, 19.1, zoom = 13)
-    
-    if (!is.null(denue_salud)) {
-      icon_farm <- awesomeIcons(icon = "plus-square", library = "fa", markerColor = "green",  iconColor = "white")
-      icon_cons <- awesomeIcons(icon = "user-md",     library = "fa", markerColor = "blue",   iconColor = "white")
-      icon_lab  <- awesomeIcons(icon = "flask",       library = "fa", markerColor = "orange", iconColor = "white")
-      m <- m %>%
-        addAwesomeMarkers(data = denue_salud %>% filter(tipo_negocio == "Farmacias"),
-                          icon = icon_farm, group = "Farmacias",
-                          popup = ~paste0("<b>", nom_estab, "</b><br>", tipo_negocio),
-                          clusterOptions = markerClusterOptions()) %>%
-        addAwesomeMarkers(data = denue_salud %>% filter(tipo_negocio == "Consultorios"),
-                          icon = icon_cons, group = "Consultorios",
-                          popup = ~paste0("<b>", nom_estab, "</b><br>", tipo_negocio),
-                          clusterOptions = markerClusterOptions()) %>%
-        addAwesomeMarkers(data = denue_salud %>% filter(tipo_negocio == "Laboratorios"),
-                          icon = icon_lab,  group = "Laboratorios",
-                          popup = ~paste0("<b>", nom_estab, "</b><br>", tipo_negocio),
-                          clusterOptions = markerClusterOptions())
-    }
-    
-    m %>%
-      addLayersControl(
-        baseGroups    = c("Mapa"),
-        overlayGroups = c("Ubicaciones", "Hospitales", "Probabilidad", "Farmacias", "Consultorios", "Laboratorios"),
-        options = layersControlOptions(collapsed = FALSE)) %>%
-      hideGroup("Consultorios") %>% 
-      { mapa_listo(TRUE); . }
-  })
-  
-  # ─── Pestaña 1: Mapa — actualización reactiva de capas de datos ────────────
-  observe({
-    req(res_auth$user)
-    req(mapa_listo()) 
-    if (is.null(oferta_actual)) return()
-    
-    res        <- datos_escenario()$futuro$resumen_hospitales
-    oferta_mapa <- datos_escenario()$oferta_usada
-    data_prob  <- datos_escenario()$layer_prob
-    tasa_uso   <- datos_escenario()$tasa_uso_global
-    
-    map_data <- oferta_mapa %>%
-      left_join(res %>% select(of_id, total_pacientes), by = c("id" = "of_id"))
-    
-    pal_prob <- colorNumeric("Reds", domain = c(0, 1))
-    cols_seg <- c("Existente" = "#64748b", "Nuestro Proyecto" = "#38bdf8", "Competencia en Obra" = "#c084fc")
-    pal_hosp <- colorFactor(palette = cols_seg, domain = map_data$tipo)
-    col_marc <- case_when(
-      as.character(map_data$tipo) == "Existente"           ~ "gray",
-      as.character(map_data$tipo) == "Nuestro Proyecto"    ~ "blue",
-      as.character(map_data$tipo) == "Competencia en Obra" ~ "purple",
-      TRUE ~ "red"
-    )
-    icons_hosp <- awesomeIcons(icon = "h-square", library = "fa",
-                               markerColor = col_marc, iconColor = "white")
-    
-    leafletProxy("mapa") %>%
-      clearGroup("Probabilidad") %>%
-      clearGroup("Hospitales") %>%
-      clearGroup("Ubicaciones") %>%
-      addCircleMarkers(data = data_prob, lng = ~lon_dem, lat = ~lat_dem,
-                       group = "Probabilidad",
-                       radius = 8, fillColor = ~pal_prob(prob_norm), color = "transparent",
-                       fillOpacity = 0.75,
-                       popup = ~paste0("<b>Prob. de Captura:</b> ", round(prob_norm * 100, 1), "%<br>",
-                                       "Pacientes Est.: ", round(mercado_captado * tasa_uso, 1))) %>%
-      addCircleMarkers(data = map_data, lng = ~lon, lat = ~lat,
-                       group = "Hospitales",
-                       radius = ~sqrt(total_pacientes) / 4, color = ~pal_hosp(tipo),
-                       stroke = TRUE, weight = 2, opacity = 1, fillOpacity = 0.35,
-                       popup = ~paste0("<b>", nombre, "</b><br>Pacientes Est: ",
-                                       prettyNum(round(total_pacientes, 0), big.mark = ","))) %>%
-      addAwesomeMarkers(data = map_data, lng = ~lon, lat = ~lat,
-                        icon = icons_hosp, group = "Ubicaciones",
-                        popup = ~paste0("<b>", nombre, "</b><br>Tipo: ", tipo)) %>%
-      addLegend("bottomright", pal = pal_prob, values = c(0, 1),
-                layerId = "leyenda_prob",
-                title = "Prob. de Captura",
-                labFormat = labelFormat(suffix = "%", transform = function(x) x * 100))
-  })
-  
-  # ─── Pestaña 1: Sankey ─────────────────────────────────────────────────────
-  output$sankey_canibal <- renderSankeyNetwork({
-    req(res_auth$user)
-    if (is.null(oferta_actual)) return(NULL)
-    
-    base   <- datos_escenario()$base$resumen_hospitales   %>% mutate(total_pacientes = total_pacientes * 12) %>%  rename(pacientes_base   = total_pacientes)
-    futuro <- datos_escenario()$futuro$resumen_hospitales %>% mutate(total_pacientes = total_pacientes * 12) %>% rename(pacientes_futuro = total_pacientes)
-    
-    flujo <- bind_rows(base, futuro) %>%
-      mutate(nombre = stringr::str_to_title(tolower(trimws(nombre)))) %>%
-      group_by(of_id, nombre, tipo) %>%
-      summarise(p_base = sum(pacientes_base, na.rm = TRUE),
-                p_futuro = sum(pacientes_futuro, na.rm = TRUE), .groups = "drop") %>%
-      mutate(diferencia = p_futuro - p_base,
-             status = ifelse(diferencia > 0, "Ganador", "Perdedor"))
-    
-    perdedores <- flujo %>% filter(status == "Perdedor")
-    ganadores  <- flujo %>% filter(status == "Ganador")
-    if (nrow(ganadores) == 0) return(NULL)
-    
-    total_mov  <- sum(ganadores$diferencia)
-    perdedores <- perdedores %>%
-      mutate(pct = abs(diferencia) / total_mov,
-             nombre_label = paste0(nombre, "|", round(pct * 100, 1), "% "))
-    ganadores  <- ganadores %>%
-      mutate(pct = diferencia / total_mov,
-             nombre_label = paste0(nombre, "|", round(pct * 100, 1), "% "))
-    
-    links <- data.frame()
-    for (i in 1:nrow(perdedores)) {
-      for (j in 1:nrow(ganadores)) {
-        links <- rbind(links, data.frame(
-          source = perdedores$nombre_label[i],
-          target = ganadores$nombre_label[j],
-          value  = abs(perdedores$diferencia[i]) * (ganadores$diferencia[j] / total_mov),
-          group  = ganadores$tipo[j]))
-      }
-    }
-    
-    nodes <- data.frame(name = unique(c(as.character(links$source), as.character(links$target))))
-    nodes$nombre_puro <- gsub("\\|.*", "", nodes$name)
-    nodes <- nodes %>%
-      left_join(flujo %>% select(nombre, tipo) %>% distinct(), by = c("nombre_puro" = "nombre")) %>%
-      mutate(color_group = case_when(
-        tipo == "Nuestro Proyecto"    ~ "PROYECTO",
-        tipo == "Competencia en Obra" ~ "COMPETENCIA",
-        TRUE ~ "EXISTENTE"))
-    nodes$group <- nodes$color_group
-    links <- links %>% mutate(group = case_when(
-      group == "Nuestro Proyecto"    ~ "PROYECTO",
-      group == "Competencia en Obra" ~ "COMPETENCIA",
-      TRUE ~ "EXISTENTE"))
-    links$IDsource <- match(links$source, nodes$name) - 1
-    links$IDtarget <- match(links$target, nodes$name) - 1
-    
-    js_col <- sprintf('d3.scaleOrdinal().domain(%s).range(%s)',
-                      jsonlite::toJSON(c("PROYECTO","COMPETENCIA","EXISTENTE"), auto_unbox = TRUE),
-                      jsonlite::toJSON(c("#38bdf8","#c084fc","#64748b"),        auto_unbox = TRUE))
-    
-    sn <- sankeyNetwork(Links = links, Nodes = nodes,
-                        Source = "IDsource", Target = "IDtarget",
-                        Value = "value", NodeID = "name", units = "Pacientes",
-                        fontSize = 12, nodeWidth = 36, nodePadding = 18, sinksRight = FALSE,
-                        colourScale = js_col, LinkGroup = "group", NodeGroup = "group",
-                        fontFamily = "Inter",
-                        margin = list(left = 200, right = 200, top = 20, bottom = 20))
-    
-    htmlwidgets::onRender(sn, '
-      function(el, x) {
-        d3.select(el).selectAll(".node text")
-          .attr("text-anchor", function(d) { return d.x < 100 ? "end" : "start"; })
-          .html(function(d) {
-            var parts = d.name.split("|");
-            if (parts.length === 1) return parts[0];
-            var isLeft = d.x < 100;
-            var xPos = isLeft ? -12 : 48;
-            return "<tspan x=\\"" + xPos + "\\" dy=\\"-0.2em\\">" + parts[0] + "</tspan>" +
-                   "<tspan x=\\"" + xPos + "\\" dy=\\"1.3em\\" style=\\"font-size:10px;fill:#64748b;font-weight:400;\\">" + parts[1] + "</tspan>";
-          });
-      }')
-  })
-  
-  # ─── Pestaña 1: Gráfica comparativa Echauri ────────────────────────────────
-  output$echauri_comp <- renderPlotly({
-    req(res_auth$user)
-    
-    variables_cap <- c("Camas", "Consultorios", "Quirófanos")
-    vals_proy_cap <- c(80, 20, 5)
-    vals_ech_cap  <- c(13, 6, 1)
-    unidades_cap  <- c("camas", "consultorios", "quirófanos")
-    
-    plot_ly() %>%
-      # ── Eje principal: capacidad física ──────────────────────────────────
-      add_bars(x = variables_cap, y = vals_proy_cap,
-               name = "Nuevo Proyecto",
-               marker = list(color = "#38bdf8", cornerradius = 3),
-               text = paste0(vals_proy_cap, " ", unidades_cap),
-               hovertemplate = "<b>Nuevo Proyecto</b><br>%{text}<extra></extra>") %>%
-      add_bars(x = variables_cap, y = vals_ech_cap,
-               name = "Hospital Echauri",
-               marker = list(color = "#c084fc", cornerradius = 3),
-               text = paste0(vals_ech_cap, " ", unidades_cap),
-               hovertemplate = "<b>Hospital Echauri</b><br>%{text}<extra></extra>") %>%
-      # ── Eje secundario: pacientes/año ─────────────────────────────────────
-      add_bars(x = c("Pacientes/año"), y = c(8429),
-               name = "Proy. — Pacientes",
-               yaxis = "y2",
-               marker = list(color = "#38bdf8", opacity = 0.6, cornerradius = 3),
-               text = "8,429 pacientes/año",
-               hovertemplate = "<b>Nuevo Proyecto</b><br>%{text}<extra></extra>") %>%
-      add_bars(x = c("Pacientes/año"), y = c(253),
-               name = "Echauri — Pacientes",
-               yaxis = "y2",
-               marker = list(color = "#c084fc", opacity = 0.6, cornerradius = 3),
-               text = "253 pacientes/año",
-               hovertemplate = "<b>Hospital Echauri</b><br>%{text}<extra></extra>") %>%
-      dark_plotly() %>%
-      layout(
-        barmode = "group",
-        yaxis  = list(title = "Capacidad física",
-                      gridcolor = "#252f45", color = "#64748b"),
-        yaxis2 = list(title = "Pacientes / año",
-                      overlaying = "y", side = "right",
-                      gridcolor = "rgba(0,0,0,0)", color = "#64748b",
-                      showgrid = FALSE),
-        legend = list(x = 0, y = 1.2, orientation = "h",
-                      font = list(color = "#94a3b8", size = 9))
-      )
-  })
-  
-  # ─── Pestaña 1: Tablas ─────────────────────────────────────────────────────
-  output$tabla_resumen <- renderTable({
-    req(res_auth$user)
-    if (is.null(oferta_actual)) return(data.frame(Nota = "Datos no disponibles"))
-    datos_escenario()$futuro$resumen_hospitales %>%
-      mutate(nombre = stringr::str_to_title(tolower(nombre)),
-             Anuales = scales::comma(total_pacientes * 12, accuracy = 1)) %>%
-      arrange(desc(total_pacientes * 12)) %>%
-      mutate(es = (of_id == "PROYECTO" | tipo == "Nuestro Proyecto"),
-             Nombre = ifelse(es, paste0("<b style='color:#38bdf8;'>", nombre, "</b>"), nombre),
-             Tipo   = ifelse(es, paste0("<b>", tipo, "</b>"), tipo),
-             Anuales = ifelse(es, paste0("<b>", Anuales, "</b>"), Anuales)) %>%
-      select(Nombre, Tipo, `Pacientes Anuales` = Anuales)
-  }, sanitize.text.function = function(x) x)
-  
-  output$plot_desglose <- renderPlotly({
-    req(res_auth$user)
-    if (is.null(oferta_actual)) return(NULL)
-    
-    pacs_mes   <- datos_escenario()$futuro$resumen_hospitales %>%
-      filter(tipo == "Nuestro Proyecto" | of_id == "PROYECTO") %>%
-      pull(total_pacientes) %>% sum(na.rm = TRUE)
-    pacs_anual <- pacs_mes * 12
-    
-    servicios <- c("Urgencias", "Consulta Externa", "Hospitalización", "Cirugías")
-    volumenes  <- round(c(pacs_anual * .35,
-                          pacs_anual * 2.5,
-                          pacs_anual * .10,
-                          pacs_anual * .10 * .40))
-    colores    <- c("#f87171", "#38bdf8", "#f5a623", "#4ade80")
-    
-    plot_ly(
-      x = volumenes, y = servicios,
-      type = "bar", orientation = "h",
-      marker = list(color = colores, cornerradius = 3),
-      text  = scales::comma(volumenes),
-      textposition = "outside",
-      hovertemplate = "<b>%{y}</b><br>%{text} visitas/año<extra></extra>"
-    ) |>
-      dark_plotly() |>
-      layout(
-        xaxis = list(title = "Volumen anual estimado",
-                     tickformat = ",d"),
-        yaxis = list(autorange = "reversed"),
-        margin = list(l = 130, r = 60)
-      )
   })
   
   # ─── Pestaña 2: Calculadora de Capacidad ───────────────────────────────────
