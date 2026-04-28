@@ -21,6 +21,7 @@ source("R/models/huff_model.R")
 source("R/models/financial_model.R")
 source("R/models/capacity_model.R")
 source("R/modules/mod_market_simulation.R")
+source("R/modules/mod_capacity_calculator.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -289,91 +290,9 @@ ui_dash <- page_navbar(
   
   # ── 2. Calculadora de Capacidad ─────────────────────────────────────────────
   nav_panel(
-    title = "Calculadora de Capacidad",
-    layout_sidebar(
-      fillable = FALSE,
-      sidebar = sidebar(
-        width = 280,
-        title = tags$h4("Parámetros de Diseño", class = "sidebar-title", style = "margin-top:0;"),
-        tags$h5("1. Demanda"),
-        numericInput("poblacion_objetivo", "Pacientes Anuales (Modelo Huff)", value = 8429, step = 500),
-        tags$small("Valor base: Pacientes/año capturados por Huff en Simulación de Mercado.", style = "color:#64748b;"),
-        sliderInput("tasa_hosp", "Tasa Hospitalización (Egresos x 1k pac.)", min = 20, max = 150, value = 100),
-        numericInput("consultas_paciente", "Frecuencia Consulta Externa (anual)", value = 2.5, step = 0.1),
-        tags$hr(),
-        tags$h5("2. Eficiencia Hospitalaria"),
-        sliderInput("ocupacion_obj", "Índice Ocupación Objetivo (%)", min = 60, max = 95, value = 85),
-        sliderInput("estancia_prom", "Estancia Promedio (Días)", min = 1, max = 8, value = 3.5, step = 0.5),
-        
-        tags$hr(),
-        tags$h5("3. Consultorios"),
-        sliderInput("pacientes_hora", "Pacientes por Hora", min = 1, max = 6, value = 3),
-        radioButtons("turnos_cons", "Turnos Activos",
-                     choices = c("1 Turno (8h)" = 1, "2 Turnos (Mat/Vesp - 16h)" = 2), selected = 2),
-        numericInput("dias_lab_cons", "Días Laborales Consultorio/Año", value = 300),
-        tags$small(HTML("Ratio de industria: <b style='color:#f5a623;'>1 consultorio / 4 camas</b>"), style = "color:#64748b;"),
-        tags$hr(),
-        tags$h5("4. Salas Quirúrgicas"),
-        sliderInput("tasa_qx", "Tasa Intervención Qx (% Egresos)", min = 10, max = 80, value = 40),
-        numericInput("cirugias_sala_dia", "Cirugías por Sala/Día", value = 4),
-        
-        tags$hr(),
-        tags$h5("5. Plantilla Médica"),
-        sliderInput("ratio_medicos_cama", "Médicos por Cama",
-                    min = 1.0, max = 4.0, value = 2.1, step = 0.1),
-        tags$small(HTML("Estándar privado MX: <b style='color:#f5a623;'>2.1</b> · Alta complejidad: 2.5–3.0"),
-                   style = "color:#64748b;")
-      ),
-      layout_column_wrap(width = 1/4,
-                         value_box(title = "Camas Censables",   value = textOutput("res_camas"),
-                                   showcase = bs_icon("hospital"),       theme = "primary",
-                                   p("Factor ×0.833 aplicado · diseño: 80")),
-                         value_box(title = "Consultorios",       value = textOutput("res_consultorios"),
-                                   showcase = bs_icon("postcard-heart"), theme = "info",
-                                   p("Ratio 1/4 camas · diseño: 20")),
-                         value_box(title = "Salas Quirúrgicas",  value = textOutput("res_quirofanos"),
-                                   showcase = bs_icon("activity"),       theme = "danger",
-                                   p("Factor ×1.667 aplicado · diseño: 5")),
-                         value_box(title = "Plantilla Médica",   value = textOutput("res_medicos"),
-                                   showcase = bs_icon("people"),         theme = "success",
-                                   p("Ratio ajustable · default: 2.1 médicos/cama"))
-      ),
-      card(fill = FALSE,
-           card_header(tags$h4(bsicons::bs_icon("geo"), " Red de Soporte Médico")),
-           card_body(
-             layout_column_wrap(width = 1/2, min_width = 480,
-                                div(tags$h5("Distribución Interna (Plantilla Base)", style = "color:#e2e8f0; font-size:12px;"),
-                                    tableOutput("tabla_especialidades")),
-                                div(tags$h5("Reclutamiento Regional — Especialidades Críticas", style = "color:#e2e8f0; font-size:12px;"),
-                                    tags$small("Subespecialidades que no existen en Manzanillo · Origen, modalidad y urgencia.", style = "color:#64748b;"), br(),
-                                    DT::DTOutput("tabla_talento_externo"))
-             )
-           )
-      ),
-      
-      # ── NUEVO: Referencia de médicos por ciudad ──────────────────────────
-      card(fill = FALSE, style = "margin-bottom:30px;",
-           card_header(tags$h4(bsicons::bs_icon("pin-map-fill"),
-                               " Mapa de Talento Regional — Médicos Disponibles por Ciudad y Especialidad")),
-           card_body(
-             div(class = "info-box",
-                 HTML('<p>Estimado de médicos especialistas disponibles en ciudades cercanas
-                 (fuente: densidad médica CONAMED/SSA 2023).
-                 <strong>Déficit proyecto</strong> = Médicos faltantes para cubrir el diseño hospitalario.
-                 Úsalo como guía para priorizar dónde y qué especialidad reclutar.</p>')),
-             layout_column_wrap(width = 1/2, min_width = 480,
-                                div(
-                                  tags$h5("Disponibilidad por ciudad y especialidad", style = "color:#e2e8f0; font-size:12px;"),
-                                  DT::DTOutput("tabla_medicos_ciudades")
-                                ),
-                                div(
-                                  tags$h5("Déficit por especialidad vs ciudades de origen", style = "color:#e2e8f0; font-size:12px;"),
-                                  plotlyOutput("plot_deficit_medicos", height = "420px")
-                                )
-             )
-           )
-      )
-    )
+    title = "Calculadora",
+    icon  = bsicons::bs_icon("calculator-fill"),
+    mod_capacity_calculator_ui("capacity_calc")
   ),
   
   # ── 3. Análisis de Mercado ──────────────────────────────────────────────────
@@ -739,16 +658,12 @@ server <- function(input, output, session) {
 
   market_sim_results <- mod_market_simulation_server("market_sim", shared_data)
 
-  # Sincroniza captación Huff → input poblacion_objetivo de Calculadora (Pestaña 2)
-  observe({
-    req(res_auth$user)
-    pacs_anual <- tryCatch(
-      market_sim_results$captacion_proyecto()$total * 12,
-      error = function(e) 0
-    )
-    if (pacs_anual > 0)
-      updateNumericInput(session, "poblacion_objetivo", value = round(pacs_anual))
-  })
+  # ─── Pestaña 2: Calculadora de Capacidad ───────────────────────────────────
+  capacity_calc_results <- mod_capacity_calculator_server("capacity_calc")
+
+  # Opcional: Acceder a resultados desde el server principal
+  # capacity_calc_results$capacidad_results()
+  # capacity_calc_results$camas_censables()
   
   # ── Reactive: vectores de mercado para Pestaña 3 (derivado del módulo) ──────
   mercado_reactivo <- reactive({
@@ -782,140 +697,6 @@ server <- function(input, output, session) {
     }, error = function(e) fallback)
   })
   
-  # ─── Pestaña 2: Calculadora de Capacidad ───────────────────────────────────
-  # Lógica centralizada en R/models/capacity_model.R :: calcular_capacidad_hospitalaria()
-  cap_result <- reactive({
-    req(res_auth$user, input$estancia_prom, input$ocupacion_obj)
-    calcular_capacidad_hospitalaria(
-      poblacion               = input$poblacion_objetivo,
-      tasa_egresos            = input$tasa_hosp / 1000,
-      dias_estancia_promedio  = input$estancia_prom,
-      tasa_ocupacion_objetivo = input$ocupacion_obj / 100,
-      k_calibracion           = 1.0
-    )
-  })
-
-  output$res_camas <- renderText({
-    req(res_auth$user); paste(cap_result()$camas_censables, "camas")
-  })
-  output$res_consultorios <- renderText({
-    req(res_auth$user); paste(cap_result()$consultorios, "consultorios")
-  })
-  output$res_quirofanos <- renderText({
-    req(res_auth$user); paste(cap_result()$quirofanos, "salas")
-  })
-  output$res_medicos <- renderText({
-    req(res_auth$user)
-    paste(round(cap_result()$camas_censables * input$ratio_medicos_cama), "médicos")
-  })
-
-  output$tabla_especialidades <- renderTable({
-    req(res_auth$user)
-    total <- round(cap_result()$camas_censables * input$ratio_medicos_cama)
-    personal <- round(total * c(.15,.18,.14,.12,.13,.10,.11,.07))
-    tibble(
-      Especialidad    = c("Medicina Interna","Gineco-Obstetricia","Cirugía General",
-                          "Pediatría","Traumatología/Ortopedia","Anestesiología",
-                          "Urgencias y Hosp. Día","Apoyo Diagnóstico","— TOTAL —"),
-      `% Plantilla`   = c("15%","18%","14%","12%","13%","10%","11%","7%", "100%"),
-      `Personal Est.` = c(personal, sum(personal))
-    )
-  })
-  
-  output$tabla_talento_externo <- DT::renderDT({
-    req(res_auth$user)
-    df <- reclu_df
-    df$Urgencia <- paste0('<span style="color:',
-                          ifelse(df$Urgencia == "Alta",  "#f87171",
-                                 ifelse(df$Urgencia == "Media", "#fb923c", "#4ade80")),
-                          '; font-weight:700;">● ', df$Urgencia, '</span>')
-    df$Fase <- paste0('<span style="color:',
-                      ifelse(df$Fase == "Fase 1", "#38bdf8",
-                             ifelse(df$Fase == "Fase 2", "#f5a623", "#c084fc")),
-                      '; font-weight:600;">', df$Fase, '</span>')
-    df$FTE <- paste0('<span style="background:#1c2333;border:1px solid #252f45;border-radius:4px;',
-                     'padding:2px 8px;font-weight:700;color:#e2e8f0;">', df$FTE, '</span>')
-    DT::datatable(df, escape = FALSE, rownames = FALSE,
-                  colnames = c("Especialidad","Médicos","Origen Regional","Modalidad","Urgencia","Fase"),
-                  options  = list(dom = "t", ordering = FALSE, pageLength = 15,
-                                  scrollX = TRUE,
-                                  columnDefs = list(
-                                    list(className = "dt-center", targets = c(1, 4, 5)),
-                                    list(width = "30%", targets = 3)
-                                  )),
-                  class = "display")
-  })
-  
-  # ─── Pestaña 2: Tabla médicos por ciudad ───────────────────────────────────
-  output$tabla_medicos_ciudades <- DT::renderDT({
-    req(res_auth$user)
-    df <- medicos_ciudades_df
-    
-    df$Prioridad <- paste0('<span style="color:',
-                           ifelse(df$Prioridad == "Alta",  "#f87171",
-                                  ifelse(df$Prioridad == "Media", "#fb923c", "#4ade80")),
-                           '; font-weight:700;">● ', df$Prioridad, '</span>')
-    
-    df$Deficit_proyecto <- paste0(
-      '<span style="background:',
-      ifelse(df$Deficit_proyecto > 0, "rgba(248,113,113,.15)", "rgba(74,222,128,.1)"),
-      '; border:1px solid ',
-      ifelse(df$Deficit_proyecto > 0, "rgba(248,113,113,.4)", "rgba(74,222,128,.3)"),
-      '; border-radius:4px; padding:1px 8px; font-weight:700; color:',
-      ifelse(df$Deficit_proyecto > 0, "#f87171", "#4ade80"), ';">',
-      ifelse(df$Deficit_proyecto > 0, paste0("-", df$Deficit_proyecto), "✓"), '</span>')
-    
-    DT::datatable(df, escape = FALSE, rownames = FALSE,
-                  colnames = c("Especialidad", "Manzanillo (actual)",
-                               "Colima", "Cd. Guzmán", "Guadalajara", "Villa de Álvarez", "Tecomán",
-                               "Déficit Proyecto", "Prioridad"),
-                  options = list(
-                    dom = "ft", ordering = TRUE, pageLength = 15,
-                    scrollX = TRUE,
-                    columnDefs = list(
-                      list(className = "dt-center", targets = 1:7),
-                      list(width = "18%", targets = 0)
-                    )
-                  ),
-                  class = "display")
-  })
-  
-  # ─── Pestaña 2: Gráfica déficit médicos ────────────────────────────────────
-  output$plot_deficit_medicos <- renderPlotly({
-    req(res_auth$user)
-    df_def <- medicos_ciudades_df %>%
-      filter(Deficit_proyecto > 0) %>%
-      arrange(desc(Deficit_proyecto))
-    
-    col_urg <- ifelse(df_def$Prioridad == "Alta", "#f87171",
-                      ifelse(df_def$Prioridad == "Media", "#fb923c", "#4ade80"))
-    
-    plot_ly() %>%
-      add_bars(x = df_def$Colima_cap, y = df_def$Especialidad,
-               name = "Colima", orientation = "h",
-               marker = list(color = "#38bdf8", cornerradius = 3),
-               hovertemplate = "<b>%{y}</b><br>Colima: %{x} médicos<extra></extra>") %>%
-      add_bars(x = df_def$Ciudad_Guzman, y = df_def$Especialidad,
-               name = "Cd. Guzmán", orientation = "h",
-               marker = list(color = "#f5a623", cornerradius = 3),
-               hovertemplate = "<b>%{y}</b><br>Cd. Guzmán: %{x} médicos<extra></extra>") %>%
-      add_bars(x = df_def$Villa_Alvarez, y = df_def$Especialidad,
-               name = "Villa de Álvarez", orientation = "h",
-               marker = list(color = "#4ade80", cornerradius = 3),
-               hovertemplate = "<b>%{y}</b><br>Villa de Álvarez: %{x} médicos<extra></extra>") %>%
-      add_markers(x = df_def$Deficit_proyecto, y = df_def$Especialidad,
-                  name = "Médicos faltantes",
-                  marker = list(color = col_urg, size = 10, symbol = "diamond",
-                                line = list(color = "#0d1117", width = 1)),
-                  hovertemplate = "<b>%{y}</b><br>Déficit: %{x} Médicos<extra></extra>") %>%
-      dark_plotly() %>%
-      layout(
-        barmode = "group",
-        xaxis   = list(title = "Número de médicos disponibles"),
-        yaxis   = list(autorange = "reversed"),
-        legend  = list(x = 0.45, y = 0.05, font = list(color = "#94a3b8", size = 9))
-      )
-  })
   
   # ─── Pestaña 3: Análisis de Mercado ────────────────────────────────────────
   output$am_huff <- renderPlotly({
