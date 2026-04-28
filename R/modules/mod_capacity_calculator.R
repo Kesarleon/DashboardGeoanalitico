@@ -198,7 +198,131 @@ mod_capacity_calculator_server <- function(id) {
                "Atención de emergencias", icon = "exclamation-triangle-fill")
     })
 
-    # CONTINÚA EN PROMPT 3 — tablas, bench_cards, fases y return()
+    # === OUTPUTS - TABLA ESPECIALIDADES ===
+
+    output$tabla_especialidades <- DT::renderDataTable({
+      req(capacidad_results())
+
+      df <- capacidad_results()$camas_por_especialidad %>%
+        mutate(proporcion_pct = paste0(round(proporcion * 100, 1), "%")) %>%
+        select(
+          Especialidad = especialidad,
+          Camas        = camas,
+          `Proporción` = proporcion_pct
+        )
+
+      DT::datatable(df, options = list(dom = "t", ordering = FALSE, pageLength = 20),
+                    rownames = FALSE)
+    })
+
+    # === OUTPUTS - TABLA ESTÁNDARES ===
+
+    output$tabla_estandares <- DT::renderDataTable({
+      req(comparacion_estandares())
+
+      df <- comparacion_estandares() %>%
+        mutate(
+          deficit_vs_proyecto = ifelse(
+            deficit_vs_proyecto > 0,
+            paste0("+", format_number(deficit_vs_proyecto)),
+            as.character(format_number(deficit_vs_proyecto))
+          ),
+          cumple_texto = ifelse(cumple_estandar, "✓ Cumple", "✗ No cumple")
+        ) %>%
+        select(
+          Estándar      = estandar,
+          `Camas/1000`  = camas_por_1000,
+          `Total Camas` = camas_totales,
+          `Déficit`     = deficit_vs_proyecto,
+          Cumplimiento  = cumple_texto
+        )
+
+      DT::datatable(df, options = list(dom = "t", ordering = FALSE, pageLength = 10),
+                    rownames = FALSE, escape = FALSE)
+    })
+
+    # === OUTPUTS - BENCH CARDS ===
+
+    output$bench_cards <- renderUI({
+      req(comparacion_estandares())
+
+      comp <- comparacion_estandares()
+
+      deficit_ocde     <- comp %>% filter(estandar == "OCDE")           %>% pull(deficit_vs_proyecto)
+      deficit_oms      <- comp %>% filter(estandar == "OMS")            %>% pull(deficit_vs_proyecto)
+      deficit_nacional <- comp %>% filter(estandar == "Mexico Nacional") %>% pull(deficit_vs_proyecto)
+      camas_actuales   <- comp %>% filter(estandar == "Proyecto")        %>% pull(camas_totales)
+
+      tags$div(
+        class = "bench-row",
+        bench_card("3.4", "Estándar OCDE",
+          paste0("Promedio países miembros · ",
+                 ifelse(deficit_ocde > 0,
+                        paste0("Faltan ", format_number(deficit_ocde), " camas"),
+                        paste0("Superávit ", format_number(abs(deficit_ocde)), " camas"))),
+          "#f5a623"),
+        bench_card("2.5", "Meta OMS",
+          paste0("Mínimo recomendado · ",
+                 ifelse(deficit_oms > 0,
+                        paste0("Faltan ", format_number(deficit_oms), " camas"),
+                        paste0("Superávit ", format_number(abs(deficit_oms)), " camas"))),
+          "#fb923c"),
+        bench_card("1.5", "Promedio Nacional MX",
+          paste0("Sistema de salud mexicano · ",
+                 ifelse(deficit_nacional > 0,
+                        paste0("Faltan ", format_number(deficit_nacional), " camas"),
+                        paste0("Superávit ", format_number(abs(deficit_nacional)), " camas"))),
+          "#38bdf8"),
+        bench_card(
+          round(capacidad_results()$metricas$camas_por_1000_hab, 2),
+          "Proyecto Actual",
+          paste0(format_number(camas_actuales), " camas totales"),
+          "#4ade80")
+      )
+    })
+
+    # === OUTPUTS - DESARROLLO POR FASES ===
+
+    output$desarrollo_fases <- renderUI({
+      req(desarrollo_fases())
+
+      fases <- desarrollo_fases()
+
+      fase_cards <- lapply(names(fases), function(fase_name) {
+        fase     <- fases[[fase_name]]
+        fase_num <- gsub("fase_", "", fase_name)
+
+        card(
+          card_header(paste0("Fase ", fase_num, " (", round(fase$proporcion * 100), "%)")),
+          card_body(
+            tags$div(
+              class = "kpi-row-small",
+              tags$div(class = "mini-kpi",
+                       tags$div(class = "mini-kpi-value", fase$camas_censables),
+                       tags$div(class = "mini-kpi-label", "Camas")),
+              tags$div(class = "mini-kpi",
+                       tags$div(class = "mini-kpi-value", fase$consultorios),
+                       tags$div(class = "mini-kpi-label", "Consultorios")),
+              tags$div(class = "mini-kpi",
+                       tags$div(class = "mini-kpi-value", fase$quirofanos),
+                       tags$div(class = "mini-kpi-label", "Quirófanos")),
+              tags$div(class = "mini-kpi",
+                       tags$div(class = "mini-kpi-value", fase$camas_uci),
+                       tags$div(class = "mini-kpi-label", "UCI"))
+            )
+          )
+        )
+      })
+
+      tagList(fase_cards)
+    })
+
+    # === RETORNO ===
+
+    return(list(
+      capacidad_results = capacidad_results,
+      camas_censables   = reactive({ capacidad_results()$camas_censables })
+    ))
 
   })
 }
