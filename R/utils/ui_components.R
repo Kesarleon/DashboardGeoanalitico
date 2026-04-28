@@ -105,11 +105,12 @@ bench_card <- function(value, label, sub = NULL, color = "#e2e8f0") {
 #' @examples
 #' page_header("DEMANDA", "Análisis de Demanda Hospitalaria",
 #'             "Proyecciones 2025-2030 para el área metropolitana")
-page_header <- function(badge, title, sub) {
+page_header <- function(badge, title, sub, icon = NULL) {
+  icon_tag <- if (!is.null(icon)) shiny::tagList(bsicons::bs_icon(icon), " ") else NULL
   shiny::div(
     class = "page-section",
     shiny::div(class = "section-badge", badge),
-    shiny::div(class = "section-title", title),
+    shiny::div(class = "section-title", icon_tag, title),
     shiny::div(class = "section-sub",   sub)
   )
 }
@@ -124,3 +125,35 @@ page_header <- function(badge, title, sub) {
 #' @return Ver \code{\link{page_header}}.
 #' @export
 page_hdr <- page_header
+
+
+#' Format a number with thousands separator
+#'
+#' @param x numeric. Value to format.
+#' @param big.mark character. Thousands separator. Default: ",".
+#'
+#' @return Character string with formatted number.
+#' @export
+#'
+#' @examples
+#' format_number(8429)      # "8,429"
+#' format_number(191031)    # "191,031"
+format_number <- function(x, big.mark = ",") {
+  scales::comma(round(x), big.mark = big.mark)
+}
+
+
+#' Format a proportion as a percentage string
+#'
+#' @param x numeric. Proportion between 0 and 1 (e.g. 0.18 → "18.0%").
+#' @param decimals integer. Decimal places. Default: 1.
+#'
+#' @return Character string with formatted percentage.
+#' @export
+#'
+#' @examples
+#' format_percentage(0.18)       # "18.0%"
+#' format_percentage(0.1832, 2)  # "18.32%"
+format_percentage <- function(x, decimals = 1) {
+  paste0(round(x * 100, decimals), "%")
+}
