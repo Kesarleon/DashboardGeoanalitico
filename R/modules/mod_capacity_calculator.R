@@ -89,3 +89,116 @@ mod_capacity_calculator_ui <- function(id) {
     )
   )
 }
+
+
+#' Capacity Calculator Module — Server
+#'
+#' Lógica del servidor para la calculadora de capacidad hospitalaria.
+#' Calcula camas censables e infraestructura complementaria usando la
+#' metodología Hill-Burton y compara con estándares OMS / OCDE / MX.
+#'
+#' @param id character. Namespace ID del módulo Shiny.
+#'
+#' @return list con reactivos:
+#'   \describe{
+#'     \item{capacidad_results}{Resultado completo de `calcular_capacidad_hospitalaria()`}
+#'     \item{camas_censables}{Reactivo con el total de camas censables}
+#'   }
+#'
+#' @seealso [mod_capacity_calculator_ui()]
+#'
+#' @export
+mod_capacity_calculator_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+
+    # === REACTIVOS ===
+
+    capacidad_results <- reactive({
+      req(input$poblacion, input$tasa_egresos, input$dias_estancia,
+          input$ocupacion, input$k_calibracion)
+
+      tasa_decimal <- input$tasa_egresos / 1000  # Convertir de "por 1000" a decimal
+
+      calcular_capacidad_hospitalaria(
+        poblacion                = input$poblacion,
+        tasa_egresos             = tasa_decimal,
+        dias_estancia_promedio   = input$dias_estancia,
+        tasa_ocupacion_objetivo  = input$ocupacion,
+        k_calibracion            = input$k_calibracion,
+        incluir_complementos     = TRUE
+      )
+    })
+
+    comparacion_estandares <- reactive({
+      req(capacidad_results())
+      comparar_con_estandares(
+        camas_censables = capacidad_results()$camas_censables,
+        poblacion       = input$poblacion
+      )
+    })
+
+    desarrollo_fases <- reactive({
+      req(capacidad_results())
+      calcular_desarrollo_por_fases(
+        capacidad_total = capacidad_results(),
+        fases           = 3,
+        distribucion    = c(0.4, 0.35, 0.25)
+      )
+    })
+
+    # === OUTPUTS - 8 KPIs ===
+
+    output$kpi_camas <- renderUI({
+      req(capacidad_results())
+      kpi_card("CAMAS CENSABLES", capacidad_results()$camas_censables,
+               "Hospitalización general", icon = "hospital")
+    })
+
+    output$kpi_consultorios <- renderUI({
+      req(capacidad_results())
+      kpi_card("CONSULTORIOS", capacidad_results()$consultorios,
+               "Atención ambulatoria", icon = "clipboard2-pulse")
+    })
+
+    output$kpi_quirofanos <- renderUI({
+      req(capacidad_results())
+      kpi_card("QUIRÓFANOS", capacidad_results()$quirofanos,
+               "Salas de cirugía", icon = "scissors")
+    })
+
+    output$kpi_uci <- renderUI({
+      req(capacidad_results())
+      kpi_card("CAMAS UCI", capacidad_results()$camas_uci,
+               "Cuidados intensivos adultos", icon = "heart-pulse-fill")
+    })
+
+    output$kpi_camas_por_1000 <- renderUI({
+      req(capacidad_results())
+      kpi_card("CAMAS / 1000 HAB",
+               round(capacidad_results()$metricas$camas_por_1000_hab, 2),
+               "Índice de cobertura", icon = "graph-up")
+    })
+
+    output$kpi_indice_rotacion <- renderUI({
+      req(capacidad_results())
+      kpi_card("ÍNDICE ROTACIÓN",
+               round(capacidad_results()$metricas$indice_rotacion, 1),
+               "Pacientes/cama/año", icon = "arrow-repeat")
+    })
+
+    output$kpi_ucin <- renderUI({
+      req(capacidad_results())
+      kpi_card("CAMAS UCIN", capacidad_results()$camas_ucin,
+               "Cuidados intensivos neonatales", icon = "heart-fill")
+    })
+
+    output$kpi_urgencias <- renderUI({
+      req(capacidad_results())
+      kpi_card("CAMAS URGENCIAS", capacidad_results()$camas_urgencias,
+               "Atención de emergencias", icon = "exclamation-triangle-fill")
+    })
+
+    # CONTINÚA EN PROMPT 3 — tablas, bench_cards, fases y return()
+
+  })
+}
