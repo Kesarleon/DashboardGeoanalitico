@@ -22,6 +22,7 @@ source("R/models/financial_model.R")
 source("R/models/capacity_model.R")
 source("R/modules/mod_market_simulation.R")
 source("R/modules/mod_capacity_calculator.R")
+source("R/modules/mod_market_analysis.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -298,44 +299,8 @@ ui_dash <- page_navbar(
   # ── 3. Análisis de Mercado ──────────────────────────────────────────────────
   nav_panel(
     title = "Análisis de Mercado",
-    div(style = "padding: 20px 24px;",
-        page_hdr("① ANÁLISIS", "Simulación de Mercado — Modelo Huff",
-                 "Captación proyectada, canibalización y entorno competitivo · Manzanillo, Colima"),
-        
-        div(class = "kpi-row",
-            kpi_card("POBLACIÓN OBJETIVO",       "191,031",  "Área metropolitana Manzanillo"),
-            kpi_card("PACIENTES CAPTADOS",        "8,429",    "▲ Captación anual Huff",    "kpi-up"),
-            kpi_card("CAPTACIÓN NUEVO PROYECTO",  "18%",      "Probabilidad Huff"),
-            kpi_card("RIESGO CANIBALIZACIÓN",     "Medio",    "",       "kpi-warn")
-        ),
-        
-        div(class = "chart-row",
-            div(class = "chart-panel",
-                div(class = "chart-title", "Probabilidad de Captación por Hospital (Modelo Huff)"),
-                plotlyOutput("am_huff",  height = "210px")),
-            div(class = "chart-panel",
-                div(class = "chart-title", "Pacientes Anuales Proyectados"),
-                plotlyOutput("am_pacs",  height = "210px"))
-        ),
-        
-        div(class = "chart-row",
-            div(class = "chart-panel",
-                div(class = "chart-title",
-                    HTML('<span style="color:#fb923c;">⇄</span> Flujo de Canibalización — Origen y Destino de Pacientes')),
-                plotlyOutput("am_can",   height = "230px")),
-            div(class = "chart-panel",
-                div(class = "chart-title",
-                    HTML('<span style="color:#f87171;">●</span> Competidores — Capacidad Real')),
-                div(style = "margin-bottom:8px;",
-                    HTML('<div class="info-box"><p>
-                    Los hospitales públicos operan al <strong>92–95% de ocupación</strong>: señal de demanda insatisfecha.
-                    La oferta privada real suma <strong>27 camas</strong> en 3 hospitales
-                    (Echauri: 13 · San Pablo: 7 · CMQ: 7).
-                    La Joya y Los Ángeles entrarán al mercado, pero la ventana de oportunidad permanece.
-                    </p></div>')),
-                DT::DTOutput("am_tbl_comp", height = "200px"))
-        )
-    )
+    icon  = bsicons::bs_icon("pie-chart-fill"),
+    mod_market_analysis_ui("market_analysis")
   ),
   
   # ── 4. Brecha de Servicios ──────────────────────────────────────────────────
@@ -658,134 +623,18 @@ server <- function(input, output, session) {
 
   market_sim_results <- mod_market_simulation_server("market_sim", shared_data)
 
+  # ── Módulo: Análisis de Mercado ───────────────────────────────────────────
+  market_analysis_results <- mod_market_analysis_server(
+    "market_analysis",
+    market_data = market_sim_results
+  )
+
   # ─── Pestaña 2: Calculadora de Capacidad ───────────────────────────────────
   capacity_calc_results <- mod_capacity_calculator_server("capacity_calc")
 
   # Opcional: Acceder a resultados desde el server principal
   # capacity_calc_results$capacidad_results()
   # capacity_calc_results$camas_censables()
-  
-  # ── Reactive: vectores de mercado para Pestaña 3 (derivado del módulo) ──────
-  mercado_reactivo <- reactive({
-    req(res_auth$user)
-
-    fallback <- list(
-      hospitales = c("Clínica del Pacífico", "Hospital General",
-                     "IMSS Manzanillo", "Nuevo Proyecto"),
-      prob       = c(11, 38, 30, 18),
-      pacs       = c(5000, 14022, 11500, 8429),
-      can_labels = c("Clínica del Pacífico", "Fuga a Colima/GDL",
-                     "Hospital General", "IMSS Manzanillo", "Nuevo Proyecto"),
-      can_pct    = c(12, 18, 32, 28, 18)
-    )
-
-    if (is.null(oferta_actual)) return(fallback)
-
-    tryCatch({
-      fut_res <- market_sim_results$huff_results()$resumen_hospitales %>%
-        mutate(pacs_anual = round(total_pacientes * 12))
-
-      total      <- sum(fut_res$pacs_anual)
-      hosp_names <- stringr::str_to_title(tolower(fut_res$nombre))
-      prob_v     <- round(fut_res$pacs_anual / total * 100, 0)
-      pacs_v     <- fut_res$pacs_anual
-
-      list(
-        hospitales = hosp_names, prob = prob_v, pacs = pacs_v,
-        can_labels = fallback$can_labels, can_pct = fallback$can_pct
-      )
-    }, error = function(e) fallback)
-  })
-  
-  
-  # ─── Pestaña 3: Análisis de Mercado ────────────────────────────────────────
-  output$am_huff <- renderPlotly({
-    m    <- mercado_reactivo()
-    paleta <- c("#f5a623","#38bdf8","#4ade80","#f87171","#c084fc","#fb923c",
-                "#e2e8f0","#67e8f9","#fde68a","#a78bfa","#34d399","#f472b6")
-    cols <- paleta[((seq_along(m$hospitales) - 1) %% length(paleta)) + 1]
-    plot_ly(x = m$prob, y = m$hospitales, type = "bar", orientation = "h",
-            marker = list(color = cols, cornerradius = 3),
-            hovertemplate = "%{x}%<extra></extra>") |>
-      dark_plotly() |>
-      layout(xaxis = list(ticksuffix = "%", range = c(0, 45)),
-             yaxis = list(autorange = "reversed"))
-  })
-  
-  output$am_pacs <- renderPlotly({
-    m    <- mercado_reactivo()
-    paleta <- c("#f5a623","#38bdf8","#4ade80","#f87171","#c084fc","#fb923c",
-                "#e2e8f0","#67e8f9","#fde68a","#a78bfa","#34d399","#f472b6")
-    cols <- paleta[((seq_along(m$hospitales) - 1) %% length(paleta)) + 1]
-    plot_ly(x = m$hospitales, y = m$pacs, type = "bar",
-            marker = list(color = cols, cornerradius = 3),
-            hovertemplate = "%{y:,}<extra></extra>") |>
-      dark_plotly() |>
-      layout(yaxis = list(tickformat = ",d"))
-  })
-  
-  output$am_can <- renderPlotly({
-    m    <- mercado_reactivo()
-    paleta <- c("#4ade80","#f87171","#f5a623","#38bdf8","#c084fc","#fb923c",
-                "#e2e8f0","#67e8f9","#fde68a","#a78bfa","#34d399","#f472b6")
-    cols <- paleta[((seq_along(m$can_labels) - 1) %% length(paleta)) + 1]
-    plot_ly(x = m$can_pct, y = m$can_labels, type = "bar", orientation = "h",
-            marker = list(color = cols, cornerradius = 3),
-            hovertemplate = "%{x}%<extra></extra>") |>
-      dark_plotly() |>
-      layout(xaxis = list(ticksuffix = "%"), 
-             yaxis = list(autorange = "reversed"))
-  })
-  
-  output$am_tbl_comp <- DT::renderDT({
-    df <- competidores_df
-    
-    # Formato columna Tipo
-    df$Tipo <- paste0('<span style="color:',
-                      ifelse(df$Tipo == "Público", "#38bdf8",
-                             ifelse(df$Tipo == "Privado", "#f5a623",
-                                    ifelse(df$Tipo == "Seg. Social", "#94a3b8", "#94a3b8"))),
-                      '; font-weight:600;">', df$Tipo, '</span>')
-    
-    # Formato ocupación con colores
-    ocup_color <- sapply(df$Ocup, function(x) {
-      if (x %in% c("92%", "95%")) return("#f87171")
-      if (x %in% c("N/A", "N/D")) return("#64748b")
-      n <- suppressWarnings(as.numeric(gsub("%", "", x)))
-      if (is.na(n)) return("#64748b")
-      if (n >= 70) "#fb923c" else "#4ade80"
-    })
-    df$Ocup <- paste0('<span style="color:', ocup_color,
-                      '; font-weight:700; font-size:13px;">', df$Ocup, '</span>')
-    
-    # Resaltar Echauri como benchmark
-    df$Hospital <- ifelse(df$Hospital == "Hospital Echauri",
-                          paste0('<span style="color:#c084fc;font-weight:700;">★ ', df$Hospital, '</span>'),
-                          df$Hospital)
-    
-    # C09: Pacs_reales × 12 para mostrar anual (la fuente .rds está en unidades mensuales)
-    df$Pacs_reales <- scales::comma(df$Pacs_reales * 12, accuracy = 1)
-    
-    # Formato Tasa_qx
-    df$Tasa_qx <- paste0('<span style="color:#94a3b8;">', df$Tasa_qx, '</span>')
-    
-    # Formato Cirugias_dia
-    df$Cirugias_dia <- ifelse(
-      is.na(df$Cirugias_dia),
-      '<span style="color:#64748b;">N/D</span>',
-      paste0('<span style="color:#e2e8f0;font-weight:600;">', df$Cirugias_dia, '</span>')
-    )
-    
-    DT::datatable(df, escape = FALSE, rownames = FALSE,
-                  colnames = c("Hospital", "Tipo", "Camas", "Especialidades",
-                               "Pac. Reales/año", "Ocupación", "Tasa Qx", "Cirugías/día"),
-                  options = list(dom = "t", ordering = FALSE, pageLength = 10,
-                                 scrollX = TRUE,
-                                 columnDefs = list(
-                                   list(className = "dt-center", targets = 2:7)
-                                 )),
-                  class = "display")
-  })
   
   # ─── Pestaña 4: Brecha de Servicios ────────────────────────────────────────
   output$bs_radar <- renderPlotly({
