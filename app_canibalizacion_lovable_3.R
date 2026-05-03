@@ -23,6 +23,7 @@ source("R/models/capacity_model.R")
 source("R/modules/mod_market_simulation.R")
 source("R/modules/mod_capacity_calculator.R")
 source("R/modules/mod_market_analysis.R")
+source("R/modules/mod_service_gap.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -123,17 +124,6 @@ echauri_ref <- list(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DATOS BRECHA DE SERVICIOS
-# ══════════════════════════════════════════════════════════════════════════════
-especialidades_v <- c("Medicina Interna","Cirugía General","Pediatría","Ginecología",
-                      "Traumatología","Cardiología","Oncología","Nefrología","Urgencias","Oftalmología")
-actual_c1000     <- c(2.1, 1.8, 2.3, 2.0, 0.8, 0.5, 0.2, 0.4, 3.2, 1.0)
-estandar_c1000   <- c(3.0, 2.5, 2.5, 2.2, 2.0, 1.5, 1.0, 0.8, 3.0, 1.0)
-brecha_v         <- actual_c1000 - estandar_c1000
-fuga_pct         <- c(22, 18, 12, 13, 35, 42, 65, 28, 3, 5)
-fuga_absoluta    <- c(310, 280, 195, 240, 450, 380, 320, 145, 95, 85)  # ← NUEVO
-estado_esp       <- c("Crítico","Crítico","Moderado","Moderado","Crítico","Crítico","Crítico","Moderado","Cubierto","Cubierto")
-
 # ══════════════════════════════════════════════════════════════════════════════
 # MODELO HOSPITALARIO
 # ══════════════════════════════════════════════════════════════════════════════
@@ -306,67 +296,8 @@ ui_dash <- page_navbar(
   # ── 4. Brecha de Servicios ──────────────────────────────────────────────────
   nav_panel(
     title = "Brecha de Servicios",
-    div(style = "padding: 20px 24px;",
-        page_hdr("② DIAGNÓSTICO", "Brecha de Servicios de Salud en Manzanillo",
-                 "Comparativo de capacidad instalada vs estándares · Clasificación semáforo por especialidad"),
-        
-        div(style = "margin-bottom:6px;",
-            HTML('<div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">
-              Camas por 1,000 habitantes — Comparativo de referencia
-            </div>')),
-        div(class = "bench-row",
-            bench_card("3.4",  "Estándar OCDE",          
-                       paste0("Promedio países miembros · Faltan ", 
-                              scales::comma(ceiling(poblacion_base_estudio * 3.4 / 1000) - sum(competidores_df$Camas)), 
-                              " camas"),
-                       "#f5a623"),
-            bench_card("2.5",  "Meta OMS",                
-                       paste0("Mínimo recomendado · Faltan ", 
-                              scales::comma(ceiling(poblacion_base_estudio * 2.5 / 1000) - sum(competidores_df$Camas)), 
-                              " camas"),
-                       "#fb923c"),
-            bench_card("1.5",  "Promedio Nacional MX",    
-                       paste0("Sistema de salud mexicano · Faltan ", 
-                              scales::comma(ceiling(poblacion_base_estudio * 1.5 / 1000) - sum(competidores_df$Camas)), 
-                              " camas"),
-                       "#38bdf8"),
-            bench_card("1.12", "Manzanillo Actual",       
-                       paste0("Déficit estructural confirmado · ",
-                              sum(competidores_df$Camas), " camas totales"), 
-                       "#f87171"),
-            bench_card("27",   "Camas Privadas Hoy",      
-                       "Echauri 13 + SanPablo 7 + CMQ 7",
-                       "#f87171")
-        ),
-        
-        div(class = "kpi-row",
-            kpi_card("ESPECIALIDADES CRÍTICAS",   "5",  "Brecha severa — atención urgente", "kpi-down"),
-            kpi_card("MODERADAS",                 "3",  "Brecha parcial"),
-            kpi_card("CUBIERTAS",                 "2",  "Oferta adecuada",                  "kpi-up"),
-            kpi_card("FUGA PROMEDIO",            "24%", "Pacientes que salen de Manzanillo","kpi-warn")
-        ),
-        
-        div(class = "chart-row",
-            div(class = "chart-panel",
-                div(class = "chart-title", "Radar de Cobertura por Especialidad (Actual vs Estándar Nacional)"),
-                plotlyOutput("bs_radar", height = "270px")),
-            div(class = "chart-panel",
-                div(class = "chart-title", "Fuga de Pacientes Fuera de Manzanillo (% por Especialidad)"),
-                plotlyOutput("bs_fuga",  height = "270px"))
-        ),
-        
-        div(class = "chart-panel full",
-            div(class = "chart-title",
-                HTML('<span style="color:#f5a623;font-size:12px;font-weight:700;">● CLASIFICACIÓN SEMÁFORO — Prioridad de Intervención por Especialidad</span>')),
-            div(style = "margin-bottom:8px;",
-                HTML('<div class="info-box"><p>
-                  <strong>Crítico (rojo)</strong>: Brecha > 30% bajo estándar + fuga significativa.
-                  <strong>Moderado (naranja)</strong>: Déficit parcialmente cubierto por sector público.
-                  <strong>Cubierto (verde)</strong>: Capacidad suficiente.
-                </p></div>')),
-            DT::DTOutput("bs_tbl")
-        )
-    )
+    icon  = bsicons::bs_icon("clipboard-pulse"),
+    mod_service_gap_ui("service_gap")
   ),
   
   # ── 5. Modelo Hospitalario ──────────────────────────────────────────────────
@@ -636,75 +567,9 @@ server <- function(input, output, session) {
   # capacity_calc_results$capacidad_results()
   # capacity_calc_results$camas_censables()
   
-  # ─── Pestaña 4: Brecha de Servicios ────────────────────────────────────────
-  output$bs_radar <- renderPlotly({
-    theta <- c(especialidades_v, especialidades_v[1])
-    plot_ly(type = "scatterpolar", fill = "toself") |>
-      add_trace(r = c(estandar_c1000, estandar_c1000[1]), theta = theta,
-                name = "Estándar Nacional",
-                line = list(color = "#f5a623", width = 2),
-                fillcolor = "rgba(245,166,35,.12)") |>
-      add_trace(r = c(actual_c1000, actual_c1000[1]), theta = theta,
-                name = "Capacidad Actual",
-                line = list(color = "#38bdf8", width = 2),
-                fillcolor = "rgba(56,189,248,.12)") |>
-      layout(paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
-             polar = list(bgcolor = "rgba(0,0,0,0)",
-                          radialaxis  = list(color = "#64748b", gridcolor = "#252f45",
-                                             tickfont = list(size = 8)),
-                          angularaxis = list(color = "#64748b", gridcolor = "#252f45",
-                                             tickfont = list(size = 9))),
-             showlegend = TRUE,
-             legend = list(x = 0, y = -0.12, orientation = "h",
-                           font = list(color = "#64748b", size = 9)),
-             margin = list(t = 10, b = 40)) |>
-      config(displayModeBar = FALSE)
-  })
-  
-  output$bs_fuga <- renderPlotly({
-    ord      <- order(fuga_pct)
-    esp_ord  <- especialidades_v[ord]
-    fuga_ord <- fuga_pct[ord]
-    cols     <- ifelse(fuga_ord >= 40, "#f87171", ifelse(fuga_ord >= 20, "#fb923c", "#f5a623"))
-    
-    # Pacientes anuales estimados que salen de Manzanillo por especialidad
-    # Demanda potencial = estandar_c1000 × poblacion / 1000; fuga = esa demanda × fuga_pct/100
-    #pac_abs_v <- round(fuga_pct / 100 * estandar_c1000 * poblacion_base_estudio / 1000)
-    #pac_ord   <- pac_abs_v[ord]
-    pac_ord  <- fuga_absoluta[ord] 
-    
-    plot_ly(x = fuga_ord, y = esp_ord, type = "bar", orientation = "h",
-            text      = paste0("~", scales::comma(pac_ord), " pac./año"),
-            marker    = list(color = cols, cornerradius = 3),
-            hovertemplate = "<b>%{y}</b><br>Fuga: <b>%{x}%</b><br>Estimado: %{text}<extra></extra>") |>
-      dark_plotly() |>
-      layout(xaxis = list(ticksuffix = "%"))
-  })
-  
-  output$bs_tbl <- DT::renderDT({
-    df <- data.frame(
-      Especialidad    = especialidades_v,
-      `Actual c/1000` = actual_c1000,
-      Estándar        = estandar_c1000,
-      Brecha          = round(brecha_v, 1),
-      `Fuga %`        = paste0(fuga_pct, "%"),
-      Estado          = estado_esp,
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
-    df$Brecha  <- paste0('<span style="color:', ifelse(df$Brecha < 0, "#f87171", "#4ade80"),
-                         '; font-weight:600;">', df$Brecha, '</span>')
-    df$Estado  <- paste0('<span style="color:',
-                         ifelse(df$Estado == "Crítico", "#f87171",
-                                ifelse(df$Estado == "Moderado", "#fb923c", "#4ade80")),
-                         '; font-weight:700; font-size:13px;">● ', df$Estado, '</span>')
-    DT::datatable(df, escape = FALSE, rownames = FALSE,
-                  options = list(dom = "t", ordering = TRUE, pageLength = 15,
-                                 columnDefs = list(
-                                   list(className = "dt-center", targets = 1:5)  # Centra columnas 1-5
-                                 )
-                                 ),
-                  class = "display")
-  })
+  # ─── Pestaña 4: Brecha de Servicios ─────────────────────────────────────────
+  service_gap_results <- mod_service_gap_server("service_gap",
+                           market_data = market_sim_results)
   
   # ─── Pestaña 5: Modelo Hospitalario ────────────────────────────────────────
   modelo_sel <- reactiveVal("Escalonado Fase 1-2-3")
