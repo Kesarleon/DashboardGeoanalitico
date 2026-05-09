@@ -24,6 +24,7 @@ source("R/modules/mod_market_simulation.R")
 source("R/modules/mod_capacity_calculator.R")
 source("R/modules/mod_market_analysis.R")
 source("R/modules/mod_service_gap.R")
+source("R/modules/mod_financial_analysis.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -319,90 +320,11 @@ ui_dash <- page_navbar(
     )
   ),
   
-  # ── 6. Modelo Financiero ────────────────────────────────────────────────────
+  # ── 6. Modelo de Negocio ─────────────────────────────────────────────────────
   nav_panel(
-    title = "Modelo Financiero",
-    layout_sidebar(
-      fillable = FALSE,
-      sidebar = sidebar(
-        width = 300,
-        title = tags$h4("Parámetros del Escenario", class = "sidebar-title", style = "margin-top:0;"),
-        tags$p("Ajusta los supuestos para generar proyecciones a 10 años.", style = "color:#64748b; font-size:11px;"),
-        tags$hr(),
-        tags$h5("① Capacidad Instalada"),
-        numericInput("fin_camas",      "Camas censables",     value = 80,  min = 10, max = 300),
-        numericInput("fin_qx",         "Quirófanos activos",   value = 5,   min = 1,  max = 20),
-        sliderInput( "fin_ocup",       "Ocupación objetivo (%)", min = 40, max = 90, value = 70, step = 5),
-        tags$hr(),
-        tags$h5("② Tarifas por Servicio (MXN)"),
-        numericInput("fin_tarifa_cama",  "Tarifa cama / día",      value = 2800,  step = 100),
-        numericInput("fin_tarifa_qx",    "Tarifa cirugía (hosp.)", value = 18000, step = 500),
-        numericInput("fin_tarifa_urg",   "Tarifa urgencias",       value = 3500,  step = 100),
-        numericInput("fin_tarifa_cons",  "Tarifa consulta (inst.)",value = 350,   step = 25),
-        numericInput("fin_tarifa_dia",   "Tarifa sillón / sesión", value = 3000,  step = 100),
-        tags$hr(),
-        tags$h5("③ Estructura de Costos"),
-        sliderInput("fin_pct_personal", "Nómina y personal (%)",       min = 25, max = 55, value = 42, step = 1),
-        sliderInput("fin_pct_insumos",  "Insumos y serv. médicos (%)", min = 10, max = 30, value = 18, step = 1),
-        numericInput("fin_costo_fijo",  "Costos fijos anuales (MDP)",  value = 10, step = 1),
-        sliderInput("fin_inf_gen",      "Inflación general (%)",        min = 2, max = 10, value = 4, step = 0.5),
-        tags$hr(),
-        tags$h5("④ Inversión y Descuento"),
-        numericInput("fin_capex", "CAPEX total Fase 1 (MDP)", value = 250, step = 10),
-        sliderInput("fin_wacc",   "WACC / Tasa descuento (%)", min = 8, max = 22, value = 12, step = 0.5),
-        sliderInput("fin_g_vol",    "Crec. volumen anual (%)", min = 0, max = 12, value = 4, step = 0.5),
-        sliderInput("fin_g_precio", "Inflación médica (%)",    min = 2, max = 12, value = 6, step = 0.5),
-        radioButtons("fin_ramp", "Velocidad de ramp-up",
-                     choices = c("Rápido (turismo + puerto)" = "Rápido",
-                                 "Moderado (base)" = "Moderado",
-                                 "Conservador (alta competencia)" = "Conservador"),
-                     selected = "Moderado")
-      ),
-      
-      div(style = "padding: 4px 8px;",
-          page_hdr("⑤ FASE 3", "Modelo Financiero Integrado",
-                   "Proyección a 10 años — Escenario base: Hospital Escalonado Fase 1-2-3"),
-          
-          layout_column_wrap(width = 1/4,
-                             value_box(title = "CAPEX TOTAL",         value = textOutput("fin_kpi_capex"),
-                                       showcase = bs_icon("cash-stack"),     theme = "primary",
-                                       tags$small("Fase 1 inicial")),
-                             value_box(title = "OPEX AÑO 1",          value = textOutput("fin_kpi_opex1"),
-                                       showcase = bs_icon("gear-wide"),      theme = "danger",
-                                       tags$small("Operación anual")),
-                             value_box(title = "PUNTO DE EQUILIBRIO", value = textOutput("fin_kpi_be"),
-                                       showcase = bs_icon("calendar-check"), theme = "warning",
-                                       tags$small("Escenario base")),
-                             value_box(title = "TIR PROYECTADA",      value = textOutput("fin_kpi_tir"),
-                                       showcase = bs_icon("graph-up-arrow"), theme = "success",
-                                       tags$small("▲ vs 12% benchmark · 10 años"))
-          ),
-          
-          div(class = "chart-row", style = "margin-top:14px;",
-              div(class = "chart-panel",
-                  div(class = "chart-title", "Ingresos vs OPEX (MDP)"),
-                  plotlyOutput("fin_ingresos", height = "220px")),
-              div(class = "chart-panel",
-                  div(class = "chart-title", "Flujo Acumulado Descontado (MDP)"),
-                  plotlyOutput("fin_flujo", height = "220px"))
-          ),
-          
-          div(class = "chart-panel full",
-              div(class = "chart-title", "EBITDA Proyectado (MDP)"),
-              plotlyOutput("fin_ebitda", height = "200px")
-          ),
-          br(),
-          
-          div(class = "chart-panel full",
-              div(class = "chart-title",
-                  HTML('<span style="color:#f5a623;">⊞</span> Análisis de Sensibilidad — 5 Escenarios')),
-              div(style = "margin-bottom:8px;",
-                  HTML('<div class="info-box"><p>Cada escenario ajusta la ocupación y las tarifas respecto al caso base.
-                  <strong>Todos los resultados</strong> se recalculan en tiempo real.</p></div>')),
-              DT::DTOutput("fin_sens")
-          )
-      )
-    )
+    title = "Modelo de Negocio",
+    icon  = bsicons::bs_icon("currency-dollar"),
+    mod_financial_analysis_ui("financial")
   ),
   
   # ── 7. Recomendación Ejecutiva ──────────────────────────────────────────────
@@ -570,7 +492,13 @@ server <- function(input, output, session) {
   # ─── Pestaña 4: Brecha de Servicios ─────────────────────────────────────────
   service_gap_results <- mod_service_gap_server("service_gap",
                            market_data = market_sim_results)
-  
+
+  # ── Módulo: Análisis Financiero ───────────────────────────────────────────
+  financial_results <- mod_financial_analysis_server(
+    "financial",
+    project_data = market_sim_results
+  )
+
   # ─── Pestaña 5: Modelo Hospitalario ────────────────────────────────────────
   modelo_sel <- reactiveVal("Escalonado Fase 1-2-3")
   observeEvent(input$modelo_tab_sel, { modelo_sel(input$modelo_tab_sel) })
@@ -770,204 +698,6 @@ server <- function(input, output, session) {
                   class = "display")
   })
   
-  # ─── Pestaña 6: Modelo Financiero — Motor reactivo ─────────────────────────
-  fin_data <- reactive({
-    req(res_auth$user, input$fin_camas, input$fin_qx, input$fin_ocup,
-        input$fin_tarifa_cama, input$fin_tarifa_qx, input$fin_tarifa_urg,
-        input$fin_tarifa_cons, input$fin_tarifa_dia,
-        input$fin_pct_personal, input$fin_pct_insumos, input$fin_costo_fijo,
-        input$fin_capex, input$fin_wacc, input$fin_g_vol, input$fin_g_precio,
-        input$fin_inf_gen, input$fin_ramp)
-    
-    ramp <- RAMP_CURVES[[input$fin_ramp]]
-    
-    rev_hosp <- input$fin_camas * 365 * (input$fin_ocup / 100) * input$fin_tarifa_cama / 1e6
-    rev_qx   <- proy_cirugias * (input$fin_qx / hosp_quirofanos) * input$fin_tarifa_qx / 1e6
-    rev_urg  <- proy_urgencias    * input$fin_tarifa_urg  / 1e6
-    rev_cons <- proy_consulta_ext * input$fin_tarifa_cons / 1e6
-    rev_dia  <- hosp_sillones_dia * 1.5 * 300 * input$fin_tarifa_dia / 1e6
-    
-    rev_base <- rev_hosp + rev_qx + rev_urg + rev_cons + rev_dia
-    
-    ingresos_v <- opex_v <- numeric(10)
-    for (t in 1:10) {
-      crec_vol  <- (1 + input$fin_g_vol   / 100)^(t - 1)
-      crec_prec <- (1 + input$fin_g_precio / 100)^(t - 1)
-      crec_fijo <- (1 + input$fin_inf_gen  / 100)^(t - 1)
-      ingr_t    <- (rev_hosp * ramp[t] +
-                      (rev_qx + rev_urg + rev_cons + rev_dia) * ramp[t] * crec_vol) * crec_prec
-      ingresos_v[t] <- ingr_t
-      opex_v[t]     <- (input$fin_pct_personal + input$fin_pct_insumos) / 100 * ingr_t +
-        input$fin_costo_fijo * crec_fijo
-    }
-    
-    ebitda_v   <- ingresos_v - opex_v
-    flujo_ac_v <- cumsum(ebitda_v) - input$fin_capex
-
-    # ── Métricas financieras via financial_model.R ──────────────────────────
-    flujos_df_base <- data.frame(
-      flujo_neto      = ebitda_v,
-      flujo_acumulado = flujo_ac_v,
-      ingresos        = ingresos_v,
-      egresos         = opex_v
-    )
-    metricas_base <- calcular_metricas_financieras(
-      flujos_df_base,
-      capex_inicial  = -input$fin_capex,
-      tasa_descuento = input$fin_wacc / 100
-    )
-    vpn     <- metricas_base$npv
-    tir_val <- if (is.na(metricas_base$irr)) NA_real_ else metricas_base$irr * 100
-
-    cumsum_ebitda <- cumsum(ebitda_v)
-    be_idx <- which(cumsum_ebitda >= input$fin_capex)[1]
-    be_str <- if (is.na(be_idx)) {
-      ">10 años"
-    } else if (be_idx == 1) {
-      "Año 1.0"
-    } else {
-      prev_v <- cumsum_ebitda[be_idx - 1]
-      curr_v <- cumsum_ebitda[be_idx]
-      frac   <- (input$fin_capex - prev_v) / (curr_v - prev_v)
-      sprintf("Año %.1f", be_idx - 1 + frac)
-    }
-    
-    calc_escenario <- function(ocup_adj_pp, tarifa_adj_pct) {
-      ocup_s <- min(90, max(30, input$fin_ocup + ocup_adj_pp))
-      k_tar  <- 1 + tarifa_adj_pct / 100
-      rh_s   <- input$fin_camas * 365 * (ocup_s / 100) * input$fin_tarifa_cama * k_tar / 1e6
-      rq_s   <- proy_cirugias * (input$fin_qx / hosp_quirofanos) * input$fin_tarifa_qx * k_tar / 1e6
-      ru_s   <- proy_urgencias    * input$fin_tarifa_urg  * k_tar / 1e6
-      rc_s   <- proy_consulta_ext * input$fin_tarifa_cons * k_tar / 1e6
-      rd_s   <- hosp_sillones_dia * 1.5 * 300 * input$fin_tarifa_dia * k_tar / 1e6
-      ingr_s <- opex_s <- numeric(10)
-      for (t in 1:10) {
-        cv <- (1 + input$fin_g_vol   / 100)^(t - 1)
-        cp <- (1 + input$fin_g_precio / 100)^(t - 1)
-        cf <- (1 + input$fin_inf_gen  / 100)^(t - 1)
-        it <- (rh_s * ramp[t] + (rq_s + ru_s + rc_s + rd_s) * ramp[t] * cv) * cp
-        ingr_s[t] <- it
-        opex_s[t] <- (input$fin_pct_personal + input$fin_pct_insumos) / 100 * it +
-          input$fin_costo_fijo * cf
-      }
-      eb_s  <- ingr_s - opex_s
-      fl_s  <- c(-input$fin_capex, eb_s)
-      vpn_s <- -input$fin_capex + sum(eb_s / (1 + input$fin_wacc / 100)^(1:10))
-      tir_s <- tryCatch(calcular_irr(fl_s) * 100, error = function(e) NA_real_)
-      ce_s  <- cumsum(eb_s)
-      bi_s  <- which(ce_s >= input$fin_capex)[1]
-      be_s  <- if (is.na(bi_s)) ">10a" else {
-        if (bi_s == 1) "1.0 años" else {
-          frc <- (input$fin_capex - ce_s[bi_s - 1]) / (ce_s[bi_s] - ce_s[bi_s - 1])
-          sprintf("%.1f años", bi_s - 1 + frc)
-        }
-      }
-      list(vpn = round(vpn_s), tir = round(tir_s, 1), be = be_s, ocup = paste0(ocup_s, "%"))
-    }
-    
-    escenarios <- list(
-      list(nombre = "Base",        ocup_adj =  0,  tar_adj =   0, tar_lbl = "Base"),
-      list(nombre = "Optimista",   ocup_adj = +10, tar_adj = +10, tar_lbl = "+10%"),
-      list(nombre = "Conservador", ocup_adj = -10, tar_adj =  -5, tar_lbl = "-5%"),
-      list(nombre = "Competencia", ocup_adj = -15, tar_adj = -10, tar_lbl = "-10%"),
-      list(nombre = "Pesimista",   ocup_adj = -25, tar_adj = -15, tar_lbl = "-15%")
-    )
-    sens_rows <- lapply(escenarios, function(e) {
-      r <- calc_escenario(e$ocup_adj, e$tar_adj)
-      data.frame(Escenario = e$nombre, Ocupacion = r$ocup, Tarifa = e$tar_lbl,
-                 VPN = r$vpn, TIR = r$tir, Breakeven = r$be, stringsAsFactors = FALSE)
-    })
-    sens_tbl <- do.call(rbind, sens_rows)
-    
-    list(anos = anos_fin, ingresos = ingresos_v, opex = opex_v,
-         ebitda = ebitda_v, flujo_ac = flujo_ac_v,
-         vpn = round(vpn), tir = tir_val, breakeven = be_str,
-         opex_yr1 = round(opex_v[1], 1), sens = sens_tbl)
-  })
-  
-  output$fin_kpi_capex <- renderText({ req(res_auth$user); paste0("$", input$fin_capex, " MDP") })
-  output$fin_kpi_opex1 <- renderText({ req(res_auth$user); paste0("$", fin_data()$opex_yr1, " MDP") })
-  output$fin_kpi_be    <- renderText({ req(res_auth$user); fin_data()$breakeven })
-  output$fin_kpi_tir   <- renderText({
-    req(res_auth$user)
-    tir <- fin_data()$tir
-    if (is.na(tir)) "N/A" else paste0(tir, "%")
-  })
-  
-  # ── Ingresos vs OPEX — eje X numérico con etiquetas ────────────────────────
-  output$fin_ingresos <- renderPlotly({
-    req(res_auth$user)
-    d <- fin_data()
-    plot_ly() |>
-      add_bars(x = d$anos, y = round(d$ingresos, 1), name = "Ingresos",
-               marker = list(color = "#f5a623", cornerradius = 3),
-               hovertemplate = "$%{y:.1f} MDP<extra></extra>") |>
-      add_bars(x = d$anos, y = round(d$opex, 1), name = "OPEX",
-               marker = list(color = "#38bdf8", cornerradius = 3),
-               hovertemplate = "$%{y:.1f} MDP<extra></extra>") |>
-      dark_plotly() |>
-      layout(barmode = "group",
-             xaxis = list(tickvals = 1:10, ticktext = paste0("Año ", 1:10),
-                          gridcolor = "#252f45", color = "#64748b"),
-             yaxis = list(ticksuffix = "M"),
-             showlegend = TRUE,
-             legend = list(x = 0, y = 1.12, orientation = "h",
-                           font = list(color = "#64748b", size = 9)))
-  })
-  
-  # ── Flujo Acumulado — eje X numérico ───────────────────────────────────────
-  output$fin_flujo <- renderPlotly({
-    req(res_auth$user)
-    d  <- fin_data()
-    fc <- round(d$flujo_ac, 1)
-    plot_ly(x = d$anos, y = fc, type = "scatter", mode = "lines+markers",
-            fill = "tozeroy",
-            line      = list(color = "#f5a623", width = 2),
-            marker    = list(color = "#f5a623", size = 6),
-            fillcolor = "rgba(245,166,35,.12)",
-            hovertemplate = "Año %{x}: $%{y:.1f} MDP<extra></extra>") |>
-      dark_plotly() |>
-      layout(xaxis = list(tickvals = 1:10, ticktext = paste0("Año ", 1:10),
-                          gridcolor = "#252f45", color = "#64748b"),
-             yaxis = list(ticksuffix = "M"),
-             shapes = list(list(type = "line", y0 = 0, y1 = 0, x0 = 1, x1 = 10,
-                                line = list(color = "#f87171", dash = "dot", width = 1))))
-  })
-  
-  # ── EBITDA — eje X numérico ─────────────────────────────────────────────────
-  output$fin_ebitda <- renderPlotly({
-    req(res_auth$user)
-    d  <- fin_data()
-    eb <- round(d$ebitda, 1)
-    cols <- ifelse(eb >= 0, "#4ade80", "#f87171")
-    plot_ly(x = d$anos, y = eb, type = "scatter", mode = "lines+markers",
-            line   = list(color = "#4ade80", width = 2),
-            marker = list(color = cols, size = 7,
-                          line = list(color = "#0d1117", width = 1)),
-            hovertemplate = "Año %{x}: $%{y:.1f} MDP<extra></extra>") |>
-      dark_plotly() |>
-      layout(xaxis = list(tickvals = 1:10, ticktext = paste0("Año ", 1:10),
-                          gridcolor = "#252f45", color = "#64748b"),
-             yaxis = list(ticksuffix = "M"),
-             shapes = list(list(type = "line", y0 = 0, y1 = 0, x0 = 1, x1 = 10,
-                                line = list(color = "#f87171", dash = "dot", width = 1))))
-  })
-  
-  output$fin_sens <- DT::renderDT({
-    req(res_auth$user)
-    df <- fin_data()$sens
-    df$VPN <- paste0('<span style="color:',
-                     ifelse(df$VPN > 200, "#4ade80", ifelse(df$VPN > 50, "#fb923c", "#f87171")),
-                     '; font-weight:600;">$', df$VPN, '</span>')
-    df$TIR <- paste0('<span style="color:',
-                     ifelse(df$TIR > 15, "#4ade80", ifelse(df$TIR > 8, "#fb923c", "#f87171")),
-                     '; font-weight:600;">', df$TIR, '%</span>')
-    df$Escenario <- paste0('<strong style="color:#e2e8f0;">', df$Escenario, '</strong>')
-    DT::datatable(df, escape = FALSE, rownames = FALSE,
-                  colnames = c("Escenario","Ocupación","Tarifa","VPN (MDP)","TIR","Breakeven"),
-                  options  = list(dom = "t", ordering = FALSE, pageLength = 10),
-                  class = "display")
-  })
 }
 
 shinyApp(ui, server)
