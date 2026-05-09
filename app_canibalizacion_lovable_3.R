@@ -25,6 +25,7 @@ source("R/modules/mod_capacity_calculator.R")
 source("R/modules/mod_market_analysis.R")
 source("R/modules/mod_service_gap.R")
 source("R/modules/mod_financial_analysis.R")
+source("R/modules/mod_executive_summary.R")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -273,6 +274,13 @@ ui_dash <- page_navbar(
   
   header = tags$head(tags$style(HTML(get_dark_css()))),
   
+  # ── 0. Resumen Ejecutivo ─────────────────────────────────────────────────────
+  nav_panel(
+    title = "Resumen Ejecutivo",
+    icon  = bsicons::bs_icon("speedometer2"),
+    mod_executive_summary_ui("executive_summary")
+  ),
+
   # ── 1. Simulación de Mercado ────────────────────────────────────────────────
   nav_panel(
     title = "Simulación de Mercado",
@@ -497,6 +505,16 @@ server <- function(input, output, session) {
   financial_results <- mod_financial_analysis_server(
     "financial",
     project_data = market_sim_results
+  )
+
+  # ── Módulo: Resumen Ejecutivo ─────────────────────────────────────────────
+  mod_executive_summary_server(
+    "executive_summary",
+    market_sim      = market_sim_results,
+    capacity_calc   = capacity_calc_results,
+    market_analysis = market_analysis_results,
+    service_gap     = service_gap_results,
+    financial       = financial_results
   )
 
   # ─── Pestaña 5: Modelo Hospitalario ────────────────────────────────────────
